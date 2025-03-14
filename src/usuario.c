@@ -5,12 +5,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "init_cuentas.c"
 
 #define BUFFER_SIZE 256
 
 int main() {
     char buffer[BUFFER_SIZE];
-
+    char nombre_user[50];
+    printf("Nombre de usuario: ");
+    scanf("%d",&nombre_user);
+    void CrearCuentas();
     while (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
         printf("Usuario recibió: %s", buffer);
         // Aquí se manejarían las solicitudes del usuario y se comunicaría con el proceso padre
