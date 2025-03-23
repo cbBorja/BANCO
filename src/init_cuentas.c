@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 struct Cuenta{
     int numero_cuenta;
     char titular[50];
@@ -8,17 +9,38 @@ struct Cuenta{
     int num_transacciones;
 };
 
-void CrearCuentas(char nombre_usuario[50]){
-    struct Cuenta nueva_cuenta;
-    nueva_cuenta.numero_cuenta = 123456; // Puedes generar un número de cuenta único
-    strcpy(nueva_cuenta.titular, nombre_usuario);
-    nueva_cuenta.saldo = 0.0;
-    nueva_cuenta.num_transacciones = 0;
+int main(){
+    const char *ruta_archivo = "../data/cuentas.dat";
+    //Abrimos el archivo en modo escritura binaria
+    FILE *archivo=fopen(ruta_archivo, "wb");
+    if(archivo == NULL){
+        printf("Error al abrir el archivo\n");
+        return 1;
+    }
+    
+    //Creamos cuentas ejemplo
+    struct Cuenta cuentas[]={
+        {1001, "Juan Vázquez", 1000.00f, 0},
+        {1002, "Pedro Federico", 2000.67f, 0},
+        {1003, "Maria Fernández", 3000.43f, 0},
+        {1004, "Ana Ramírez", 4000.23f, 0},
+        {1005, "Luis García", 5000.98f, 0}
+    };
 
-    printf("Cuenta creada:\n");
-    printf("Numero de cuenta: %d\n", nueva_cuenta.numero_cuenta);
-    printf("Titular: %s\n", nueva_cuenta.titular);
-    printf("Saldo: %.2f\n", nueva_cuenta.saldo);
-    printf("Numero de transacciones: %d\n", nueva_cuenta.num_transacciones);
+    //Contamos el número de cuentas
+    int num_cuentas = sizeof(cuentas) / sizeof(cuentas[0]);
+
+    //Escribimos las cuentas en el archivo
+    size_t elemtos_escritos = fwrite(cuentas, sizeof(struct Cuenta), num_cuentas, archivo);
+    if(elemtos_escritos != num_cuentas){
+        printf("Error al escribir las cuentas en el archivo\n");
+        fclose(archivo);
+        return 1;
+    }
+
+    fclose(archivo);
+    printf("Cuentas escritas en el archivo\n");
+    return 0;
+
+    
 }
-
