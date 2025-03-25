@@ -1,16 +1,24 @@
 {
   "version": "2.0.0",
   "tasks": [
-    {
-      "label": "build",
-      "type": "shell",
-      "command": "make",
-      "args": [],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": ["$gcc"]
-    }
+      {
+          "label": "Compilar todo",
+          "type": "shell",
+          "command": "gcc",
+          "args": [
+              "-o", "BANCO/bin/banco",
+              "BANCO/src/banco.c",
+              "BANCO/src/init_cuentas.c",
+              "BANCO/src/monitor.c",
+              "BANCO/src/usuario.c",
+              "-pthread", "-lrt"
+          ],
+          "group": {
+              "kind": "build",
+              "isDefault": true
+          },
+          "problemMatcher": ["$gcc"],
+          "detail": "Compila todos los archivos C en un ejecutable llamado 'banco'"
+      }
   ]
 }

@@ -8,8 +8,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define CONFIG_FILE "config/config.txt"
-#define LOG_FILE "transacciones.log"
+#define CONFIG_FILE "../config/config.txt"
+#define LOG_FILE "../data/transacciones.log"
 
 typedef struct {
     int limite_retiro;
