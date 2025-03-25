@@ -1,0 +1,8 @@
+# Ignorar binarios y archivos compilados
+BANCO/bin/
+BANCO/**/*.o
+BANCO/**/*.out
+BANCO/**/*.exe
+
+# Ignorar archivos de configuración de VS Code
+.vscode/
