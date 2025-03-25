@@ -1,6 +1,7 @@
 # Ignorar binarios y archivos compilados
 BANCO/bin/
 BANCO/**/*.o
+BANCO/scr/build/Debug
 BANCO/**/*.out
 BANCO/**/*.exe
 

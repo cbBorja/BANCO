@@ -25,7 +25,7 @@ Config config;
 
 /* Función para leer la configuración desde el archivo.
    Se espera que cada línea siga el formato clave=valor sin espacios extra. */
-void leer_configuracion(const char *filename, Config *config) {
+void leer_configuracion(const char *filename, Config *cfg) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
         perror("Error al abrir el archivo de configuración");
@@ -37,19 +37,19 @@ void leer_configuracion(const char *filename, Config *config) {
         // Eliminar salto de línea
         line[strcspn(line, "\n")] = 0;
         if (strncmp(line, "LIMITE_RETIRO=", 14) == 0) {
-            config->limite_retiro = atoi(line + 14);
+            cfg->limite_retiro = atoi(line + 14);
         } else if (strncmp(line, "LIMITE_TRANSFERENCIA=", 21) == 0) {
-            config->limite_transferencia = atoi(line + 21);
+            cfg->limite_transferencia = atoi(line + 21);
         } else if (strncmp(line, "UMBRAL_RETIROS=", 15) == 0) {
-            config->umbral_retiros = atoi(line + 15);
+            cfg->umbral_retiros = atoi(line + 15);
         } else if (strncmp(line, "UMBRAL_TRANSFERENCIAS=", 22) == 0) {
-            config->umbral_transferencias = atoi(line + 22);
+            cfg->umbral_transferencias = atoi(line + 22);
         } else if (strncmp(line, "NUM_HILOS=", 10) == 0) {
-            config->num_hilos = atoi(line + 10);
+            cfg->num_hilos = atoi(line + 10);
         } else if (strncmp(line, "ARCHIVO_CUENTAS=", 16) == 0) {
-            sscanf(line + 16, "%s", config->archivo_cuentas);
+            sscanf(line + 16, "%s", cfg->archivo_cuentas);
         } else if (strncmp(line, "ARCHIVO_LOG=", 12) == 0) {
-            sscanf(line + 12, "%s", config->archivo_log);
+            sscanf(line + 12, "%s", cfg->archivo_log);
         }
     }
     fclose(file);
