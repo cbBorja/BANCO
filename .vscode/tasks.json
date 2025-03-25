@@ -1,24 +1,20 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-      {
-          "label": "Compilar todo",
-          "type": "shell",
-          "command": "gcc",
-          "args": [
-              "-o", "BANCO/bin/banco",
-              "BANCO/src/banco.c",
-              "BANCO/src/init_cuentas.c",
-              "BANCO/src/monitor.c",
-              "BANCO/src/usuario.c",
-              "-pthread", "-lrt"
-          ],
-          "group": {
-              "kind": "build",
-              "isDefault": true
-          },
-          "problemMatcher": ["$gcc"],
-          "detail": "Compila todos los archivos C en un ejecutable llamado 'banco'"
-      }
-  ]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compilar todo",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "gcc -o BANCO/bin/banco BANCO/src/banco.c -pthread -lrt && gcc -o BANCO/bin/init_cuentas BANCO/src/init_cuentas.c -pthread -lrt && gcc -o BANCO/bin/monitor BANCO/src/monitor.c -pthread -lrt && gcc -o BANCO/bin/usuario BANCO/src/usuario.c -pthread -lrt"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Compila todos los archivos C en ejecutables separados"
+        }
+    ]
 }
