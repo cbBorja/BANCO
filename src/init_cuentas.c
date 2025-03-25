@@ -3,14 +3,16 @@
 #include <string.h>
 
 // Definición de la estructura Cuenta
-typedef struct {
+typedef struct 
+{
     int numero_cuenta;
     char titular[50];
     float saldo;
     int num_transacciones;
 } Cuenta;
 
-int main(void) {
+int main(void) 
+{
     // Ruta del archivo de cuentas
     const char *ruta_archivo = "../data/cuentas.dat";
     
@@ -54,6 +56,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
     
+
     printf("Cuentas inicializadas y guardadas exitosamente en '%s'.\n", ruta_archivo);
     return EXIT_SUCCESS;
 }

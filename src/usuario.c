@@ -28,6 +28,7 @@ void *ejecutar_operacion(void *arg) {
     switch (args->op.tipo_operacion) {
         case 1:
             printf("Ejecutando: Depósito de %.2f\n", args->op.monto);
+            //saldo = saldo + args->op.monto;
             break;
         case 2:
             printf("Ejecutando: Retiro de %.2f\n", args->op.monto);
@@ -87,6 +88,7 @@ void menu_usuario(int pipe_fd) {
                 continue;
             }
             op.monto = monto;
+            //Esperar para no volver a sacar el menu
         }
         
         // Preparar los argumentos para el hilo.
@@ -141,6 +143,7 @@ void proceso_principal(int pipe_fd) {
 int main() {
     int pipe_fd[2];
     pid_t pid;
+    //Cuenta cuenta;
 
     // Crear la tubería para la comunicación entre procesos.
     if (pipe(pipe_fd) == -1) {
