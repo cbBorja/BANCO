@@ -41,9 +41,9 @@ int main(void)
     
     // Escribir las cuentas en el archivo
    for(size_t i = 0; i < num_cuentas; i++) {
-        size_t elementos_escritos = fwrite(&cuentas[i], sizeof(Cuenta), 1, archivo);
-        if (elementos_escritos != 1) {
-            perror("Error al escribir la cuenta en el archivo");
+        fprintf(archivo, "%d %s %.2f %d\n", cuentas[i].numero_cuenta, cuentas[i].titular, cuentas[i].saldo, cuentas[i].num_transacciones);
+        if(ferror(archivo)) {
+            perror("Error al escribir en el archivo");
             fclose(archivo);
             exit(1);
         }
