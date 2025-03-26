@@ -24,7 +24,11 @@ int main(){
         {1002, "Pedro Federico", 2000.67f, 0},
         {1003, "Maria Fernández", 3000.43f, 0},
         {1004, "Ana Ramírez", 4000.23f, 0},
-        {1005, "Luis García", 5000.98f, 0}
+        {1005, "Carmen Denia", 5000.98f, 0},
+        {1006, "José Luis Dominguez", 5000.98f, 0},
+        {1007, "Gonzalo D'Lorenzo", 5000.98f, 0},
+        {1008, "Fran García", 5000.98f, 0},
+        {1009, "Carlos Sévez ", 5000.98f, 0}
     };
 
     //Contamos el número de cuentas
