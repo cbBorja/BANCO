@@ -1,21 +1,26 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-
-struct Cuenta{
+// Definición de la estructura Cuenta
+typedef struct 
+{
     int numero_cuenta;
     char titular[50];
     float saldo;
     int num_transacciones;
-};
+} Cuenta;
 
-int main(){
+int main(void) 
+{
+    // Ruta del archivo de cuentas
     const char *ruta_archivo = "../data/cuentas.dat";
-    //Abrimos el archivo en modo escritura binaria
-    FILE *archivo=fopen(ruta_archivo, "wb");
-    if(archivo == NULL){
-        printf("Error al abrir el archivo\n");
-        return 1;
+    
+    // Abrir el archivo en modo escritura binaria
+    FILE *archivo = fopen(ruta_archivo, "wb");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo");
+        return EXIT_FAILURE;
     }
     
     //Creamos cuentas ejemplo
@@ -30,21 +35,32 @@ int main(){
         {1008, "Fran García", 5000.98f, 0},
         {1009, "Carlos Sévez ", 5000.98f, 0}
     };
-
-    //Contamos el número de cuentas
-    int num_cuentas = sizeof(cuentas) / sizeof(cuentas[0]);
-
-    //Escribimos las cuentas en el archivo
-    size_t elemtos_escritos = fwrite(cuentas, sizeof(struct Cuenta), num_cuentas, archivo);
-    if(elemtos_escritos != num_cuentas){
-        printf("Error al escribir las cuentas en el archivo\n");
-        fclose(archivo);
-        return 1;
-    }
-
-    fclose(archivo);
-    printf("Cuentas escritas en el archivo\n");
-    return 0;
-
     
+    // Calcular el número de cuentas
+    size_t num_cuentas = sizeof(cuentas) / sizeof(cuentas[0]);
+    
+    // Escribir las cuentas en el archivo
+    size_t elementos_escritos = fwrite(cuentas, sizeof(Cuenta), num_cuentas, archivo);
+    if (elementos_escritos != num_cuentas) {
+        perror("Error al escribir las cuentas en el archivo");
+        fclose(archivo);
+        return EXIT_FAILURE;
+    }
+    
+    // Asegurarse de que los datos se escriban correctamente en disco
+    if (fflush(archivo) != 0) {
+        perror("Error al vaciar el buffer del archivo");
+        fclose(archivo);
+        return EXIT_FAILURE;
+    }
+    
+    // Cerrar el archivo
+    if (fclose(archivo) != 0) {
+        perror("Error al cerrar el archivo");
+        return EXIT_FAILURE;
+    }
+    
+
+    printf("Cuentas inicializadas y guardadas exitosamente en '%s'.\n", ruta_archivo);
+    return EXIT_SUCCESS;
 }
