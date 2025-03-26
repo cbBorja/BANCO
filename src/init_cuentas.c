@@ -24,7 +24,7 @@ int main(void)
     }
     
     //Creamos cuentas ejemplo
-    struct Cuenta cuentas[]={
+    Cuenta cuentas[]={
         {1001, "Juan Vázquez", 1000.00f, 0},
         {1002, "Pedro Federico", 2000.67f, 0},
         {1003, "Maria Fernández", 3000.43f, 0},

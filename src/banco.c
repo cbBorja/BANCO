@@ -112,6 +112,7 @@ int main() {
             while ((nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
                 buffer[nbytes] = '\0';
                 // Registra la operación en el archivo de log.
+                
                 fprintf(log_file, "Usuario %d: %s", i + 1, buffer);
                 fflush(log_file);
             }
