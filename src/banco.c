@@ -90,16 +90,20 @@ int main() {
         } else if (pid == 0) {
             // Proceso hijo: cierra el extremo de lectura de la tubería.
             close(pipefd[0]);
-            /* Redirige la salida estándar al extremo de escritura de la tubería.
-               Así, lo que se imprima en el proceso usuario se enviará al proceso padre. */
+
+            // Redirige la salida estándar al extremo de escritura de la tubería.
             if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
                 perror("Error al redirigir la salida estándar");
                 exit(EXIT_FAILURE);
             }
             close(pipefd[1]);
 
-            // Ejecuta el programa usuario. Se asume que el ejecutable "usuario" se encuentra en el directorio actual.
-            execl("./usuario", "usuario", NULL);
+            // Número de cuenta (puedes personalizarlo).
+            char numero_cuenta[16];
+            snprintf(numero_cuenta, sizeof(numero_cuenta), "%d", i + 1);
+
+            // Ejecuta el programa usuario con el número de cuenta como argumento.
+            execl("./usuario", "usuario", numero_cuenta, NULL);
             perror("Error al ejecutar el programa usuario");
             exit(EXIT_FAILURE);
         } else {
@@ -112,7 +116,6 @@ int main() {
             while ((nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
                 buffer[nbytes] = '\0';
                 // Registra la operación en el archivo de log.
-
                 fprintf(log_file, "Usuario %d: %s", i + 1, buffer);
                 fflush(log_file);
             }

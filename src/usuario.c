@@ -140,7 +140,15 @@ void proceso_principal(int pipe_fd) {
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Uso: %s <numero_cuenta>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    char *numero_cuenta = argv[1];
+    printf("Procesando cuenta: %s\n", numero_cuenta);
+
     int pipe_fd[2];
     pid_t pid;
     //Cuenta cuenta;
