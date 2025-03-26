@@ -1,0 +1,75 @@
+#include "banco.h"
+
+CONFIG configuracion;
+
+/// @brief Funcion que se llama para leer el archivo de configuración
+/// @return valor numérico que indica la validez de la lectura
+int leer_configuracion() {
+    FILE *file;
+    int state = 0;
+    char linea[MAX_LINE_LENGTH] = "";
+    char *key, *value;
+
+    // Abrir el archivo de configuración en modo lectura
+    file = fopen("banco.config", "r");
+    if (file == NULL) {
+        escrituraLogGeneral("Error al abrir el archivo de configuración\n");
+        return 1; // Retornar error si no se puede abrir el archivo
+    }
+
+    // Leer línea por línea del archivo
+    while (fgets(linea, sizeof(linea), file)) {
+        linea[strcspn(linea, "\n")] = 0; // Eliminar el salto de línea al final
+
+        key = strtok(linea, "="); // Separar la clave
+        value = strtok(NULL, "="); // Separar el valor
+
+        if (key && value) {
+            // Comparar la clave y asignar el valor a la estructura de configuración
+            if (strcmp(key, "LIMITE_RETIRO") == 0)
+                configuracion.limiteRetiros = atoi(value);
+            else if (strcmp(key, "LIMITE_TRANSFERENCIA") == 0)
+                configuracion.limiteTransferencia = atoi(value);
+            else if (strcmp(key, "UMBRAL_RETIROS") == 0)
+                configuracion.umbralRetiros = atoi(value);
+            else if (strcmp(key, "UMBRAL_TRANSFERENCIAS") == 0)
+                configuracion.umbralTransferencias = atoi(value);
+            else if (strcmp(key, "NUM_HILOS") == 0)
+                configuracion.numHilos = atoi(value);
+            else if (strcmp(key, "ARCHIVO_LOG") == 0)
+                strncpy(configuracion.archivoLog, value, MAX_LINE_LENGTH);
+        }
+    }
+
+    fclose(file); // Cerrar el archivo
+    escrituraLogGeneral("Se ha leído correctamente el contenido del archivo banco.config\n");
+    return state; // Retornar estado de lectura
+}
+
+/// @brief Funcion que se llama para leer el archivo de transacciones
+/// @return valor numérico que indica la validez de la lectura
+int leer_transacciones() {
+    FILE *file;
+    int state = 0;
+    char linea[MAX_LINE_LENGTH] = "";
+    char *key, *value;
+
+    // Abrir el archivo de transacciones en modo lectura
+    file = fopen("transacciones.log", "r");
+    if (file == NULL) {
+        escrituraLogGeneral("Error al abrir el archivo de transacciones\n");
+        return 1; // Retornar error si no se puede abrir el archivo
+    }
+
+    // Leer línea por línea del archivo
+    while (fgets(linea, sizeof(linea), file)) {
+        linea[strcspn(linea, "\n")] = 0; // Eliminar el salto de línea al final
+
+        key = strtok(linea, "-"); // Separar la clave
+        value = strtok(NULL, "="); // Separar el valor
+    }
+
+    fclose(file); // Cerrar el archivo
+    escrituraLogGeneral("Se ha leído correctamente el contenido del archivo transacciones.log\n");
+    return state; // Retornar estado de lectura
+}
