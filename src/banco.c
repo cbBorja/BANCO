@@ -96,7 +96,7 @@ int main() {
                 perror("Error al redirigir la salida estándar");
                 exit(EXIT_FAILURE);
             }
-            close(pipefd[1]); // Cierra el descriptor original tras la redirección.
+            close(pipefd[1]);
 
             // Ejecuta el programa usuario. Se asume que el ejecutable "usuario" se encuentra en el directorio actual.
             execl("./usuario", "usuario", NULL);
@@ -112,7 +112,7 @@ int main() {
             while ((nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
                 buffer[nbytes] = '\0';
                 // Registra la operación en el archivo de log.
-                
+
                 fprintf(log_file, "Usuario %d: %s", i + 1, buffer);
                 fflush(log_file);
             }

@@ -17,10 +17,10 @@ int main(void)
     const char *ruta_archivo = "../data/cuentas.dat";
     
     // Abrir el archivo en modo escritura binaria
-    FILE *archivo = fopen(ruta_archivo, "wb");
+    FILE *archivo = fopen(ruta_archivo, "w+");
     if (archivo == NULL) {
         perror("Error al abrir el archivo");
-        return EXIT_FAILURE;
+        exit(1);
     }
     
     //Creamos cuentas ejemplo
@@ -40,27 +40,29 @@ int main(void)
     size_t num_cuentas = sizeof(cuentas) / sizeof(cuentas[0]);
     
     // Escribir las cuentas en el archivo
-    size_t elementos_escritos = fwrite(cuentas, sizeof(Cuenta), num_cuentas, archivo);
-    if (elementos_escritos != num_cuentas) {
-        perror("Error al escribir las cuentas en el archivo");
-        fclose(archivo);
-        return EXIT_FAILURE;
+   for(size_t i = 0; i < num_cuentas; i++) {
+        size_t elementos_escritos = fwrite(&cuentas[i], sizeof(Cuenta), 1, archivo);
+        if (elementos_escritos != 1) {
+            perror("Error al escribir la cuenta en el archivo");
+            fclose(archivo);
+            exit(1);
+        }
     }
     
     // Asegurarse de que los datos se escriban correctamente en disco
     if (fflush(archivo) != 0) {
         perror("Error al vaciar el buffer del archivo");
         fclose(archivo);
-        return EXIT_FAILURE;
+        exit(1);
     }
     
     // Cerrar el archivo
     if (fclose(archivo) != 0) {
         perror("Error al cerrar el archivo");
-        return EXIT_FAILURE;
+        exit(1);
     }
     
 
     printf("Cuentas inicializadas y guardadas exitosamente en '%s'.\n", ruta_archivo);
-    return EXIT_SUCCESS;
+    exit(0);
 }
