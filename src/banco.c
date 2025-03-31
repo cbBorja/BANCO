@@ -81,7 +81,7 @@ void EscribirTransacciones(const char* archivo_log, int cuenta, const char*tipo,
     }else{
         perror("Tipo de transacción no válido");
     }
-    //escribimos en el archivo de log
+    //escribimos en el archivo log
     fprintf(archivo, "%s %s en la cuenta %d: %c%2.f\n", fecha, tipo,cuenta,signo,monto);
     fclose(archivo);
 }
