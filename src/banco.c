@@ -55,6 +55,36 @@ void leer_configuracion(const char *filename, Config *config) {
     fclose(file);
 }
 
+void EscribirTransacciones(const char* archivo_log, int cuenta, const char*tipo, double monto){
+    FILE *archivo = fopen(archivo_log, "a");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo de log");
+        exit(1);
+    }
+
+    // Obtener la fecha y hora actual
+    time_t now;
+    time(&now);
+    struct tm *tm_info = localtime(&now);
+    char fecha[20];
+    strftime(fecha, sizeof(fecha), "[%Y-%m-%d %H:%M:%S]", tm_info);
+
+    //Determinamos el tipo de transacción
+    char signo;
+    if(strcmp(tipo,"Deposito")==0){
+        signo='+';
+    }else if(strcmp(tipo,"Retiro")==0){
+        signo='-';
+    }else if(strcmp(tipo,"Transferencia")==0){
+        signo='+';
+    }else{
+        perror("Tipo de transacción no válido");
+    }
+    //escribimos en el archivo de log
+    fprintf(archivo, "%s %s en la cuenta %d: %c%2.f\n", fecha, tipo,cuenta,signo,monto);
+    fclose(archivo);
+}
+
 int main() {
     // Leer el fichero de configuración.
     leer_configuracion(CONFIG_FILE, &config);
@@ -90,20 +120,16 @@ int main() {
         } else if (pid == 0) {
             // Proceso hijo: cierra el extremo de lectura de la tubería.
             close(pipefd[0]);
-
-            // Redirige la salida estándar al extremo de escritura de la tubería.
+            /* Redirige la salida estándar al extremo de escritura de la tubería.
+               Así, lo que se imprima en el proceso usuario se enviará al proceso padre. */
             if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
                 perror("Error al redirigir la salida estándar");
                 exit(EXIT_FAILURE);
             }
             close(pipefd[1]);
 
-            // Número de cuenta (puedes personalizarlo).
-            char numero_cuenta[16];
-            snprintf(numero_cuenta, sizeof(numero_cuenta), "%d", i + 1);
-
-            // Ejecuta el programa usuario con el número de cuenta como argumento.
-            execl("./usuario", "usuario", numero_cuenta, NULL);
+            // Ejecuta el programa usuario. Se asume que el ejecutable "usuario" se encuentra en el directorio actual.
+            execl("./usuario", "usuario", NULL);
             perror("Error al ejecutar el programa usuario");
             exit(EXIT_FAILURE);
         } else {
@@ -116,6 +142,7 @@ int main() {
             while ((nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1)) > 0) {
                 buffer[nbytes] = '\0';
                 // Registra la operación en el archivo de log.
+
                 fprintf(log_file, "Usuario %d: %s", i + 1, buffer);
                 fflush(log_file);
             }
