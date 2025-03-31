@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #define CONFIG_FILE "../config/config.txt"
 #define LOG_FILE "../data/transacciones.log"
