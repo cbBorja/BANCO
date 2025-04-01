@@ -1,0 +1,9 @@
+Usuario conectado: Cuenta 1001 (PID: 6427)
+Usuario conectado: Cuenta 1009 (PID: 6463)
+Usuario conectado: Cuenta 1001 (PID: 8204)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+[ERROR] Operación fallida para cuenta 1001: Error desconocido
+Usuario conectado: Cuenta 1002 (PID: 8238)
+Usuario desconectado: PID 8204
+Usuario (Cuenta 1002): Usuario con cuenta 1002 ha iniciado sesión.
+[ERROR] Operación fallida para cuenta 1002: Error desconocido
