@@ -1,0 +1,7 @@
+bin/banco
+.vscode/
+bin/*
+*.o
+*.out
+*.exe
+*.a
