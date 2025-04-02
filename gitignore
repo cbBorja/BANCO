@@ -1,9 +1,14 @@
 # Ignorar binarios y archivos compilados
 BANCO/bin/
+BANCO/bin/**
+BANCO/bin/*
 BANCO/**/*.o
 BANCO/scr/build/Debug
 BANCO/**/*.out
 BANCO/**/*.exe
+bin/
+bin/**
+bin/*
 
 # Ignorar archivos de configuración de VS Code
 .vscode/
