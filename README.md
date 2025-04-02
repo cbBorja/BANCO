@@ -1,67 +1,86 @@
-Aquí te dejo un análisis detallado de las incompatibilidades y posibles conflictos entre los tres programas según el código que hemos escrito:
+# Banco
 
----
+Este proyecto implementa un sistema bancario concurrente utilizando múltiples procesos y comunicación entre ellos. A continuación, se describen los componentes principales del sistema y cómo se integran.
 
-### 1. Incompatibilidad en la gestión de la comunicación por tubería entre banco.c y usuario.c
+## Componentes
 
-- **Banco.c:**  
-  En este programa, el proceso padre crea una tubería para cada usuario y luego forkea para crear un proceso hijo. Antes de llamar a `execl("./usuario", "usuario", NULL)`, redirige la salida estándar (STDOUT) del hijo al extremo de escritura de la tubería. Se espera que el programa ejecutado (usuario) envíe sus mensajes de operación a través de STDOUT, para que el proceso padre pueda leerlos.
+### 1. `banco.c`
 
-- **Usuario.c (versión con fork interno):**  
-  La versión propuesta de usuario.c que generamos incluye su propia creación de tubería y fork, es decir, lanza internamente otro proceso para manejar el menú y otro para procesar las operaciones. Esto genera un conflicto, ya que banco.c ya estableció una comunicación por tubería y espera que el programa usuario *no* cree su propia estructura de comunicación adicional.
+Este programa es el núcleo del sistema bancario. Se encarga de leer la configuración, crear semáforos para controlar el acceso a los archivos y gestionar la comunicación con los usuarios.
 
-**Solución recomendada:**  
-Modificar el programa usuario.c para que funcione como un proceso autónomo sin crear su propia tubería o forking adicional. El programa usuario debería simplemente leer la entrada (o mostrar el menú) y escribir directamente a STDOUT, que ya estará redirigido a la tubería establecida por banco.c.
+- **Configuración:** Lee los parámetros de configuración desde un archivo.
+- **Semáforos:** Utiliza semáforos para proteger las operaciones concurrentes en el archivo de cuentas.
+- **Comunicación:** Crea tuberías y lanza procesos hijos para cada usuario. Redirige la salida estándar de los procesos hijos a las tuberías para leer las operaciones de los usuarios.
 
----
+### 2. `usuario.c`
 
-### 2. Diferencia en la estructura de comunicación y el rol de los procesos
+Este programa presenta un menú interactivo al usuario y envía las operaciones seleccionadas al proceso `banco.c` a través de la salida estándar.
 
-- **Banco.c:**  
-  Se asume que el proceso hijo (usuario) se encarga únicamente de presentar el menú, capturar la operación y enviarla a través de la tubería. Luego, el proceso padre en banco.c lee ese dato y lo registra en el log.
+- **Menú:** Presenta opciones para realizar depósitos, retiros, transferencias y consultar el saldo.
+- **Operaciones:** Envía las operaciones seleccionadas a través de la salida estándar para que `banco.c` las procese.
 
-- **Usuario.c (versión completa):**  
-  En la versión propuesta, el programa usuario implementa tanto el menú interactivo como la creación de hilos para ejecutar operaciones concurrentemente. Esto está pensado para ejecutarse como un proceso independiente que maneja su propia comunicación (creando y utilizando su propia tubería interna), lo que contradice la idea de que banco.c sea el encargado de la comunicación entre procesos.
+### 3. `init_cuentas.c`
 
-**Solución recomendada:**  
-Definir claramente la arquitectura:  
-- **Opción 1:** Que banco.c lance cada usuario como un proceso independiente (por ejemplo, mediante `execl("./usuario", "usuario", <algún parámetro>)`) y que el programa usuario simplemente utilice STDOUT (o incluso argumentos por línea de comandos) para enviar las operaciones.  
-- **Opción 2:** O bien, integrar la lógica de usuario en banco.c sin ejecutar un nuevo ejecutable.
+Este programa inicializa el archivo de cuentas con datos de ejemplo.
 
-Si se opta por la Opción 1, en usuario.c se debe eliminar la creación de una nueva tubería y el fork interno, y simplemente se debe llamar a la función `menu_usuario` que lea la entrada del usuario y escriba las operaciones a STDOUT.
+- **Archivo de cuentas:** Lee la ruta del archivo de cuentas desde el archivo de configuración y escribe datos de ejemplo en él.
 
----
+### 4. `monitor.c`
 
-### 3. Diferencias en las rutas de archivos y configuraciones
+Este programa monitorea las transacciones y detecta patrones sospechosos.
 
-- **Archivo de cuentas:**  
-  - En **init_cuentas.c**, la ruta se define como `"../data/cuentas.dat"`.  
-  - En **banco.c**, se utiliza el parámetro `ARCHIVO_CUENTAS` leído del archivo de configuración.  
-  Es importante que la ruta que se escribe en el fichero de configuración sea consistente con la ruta usada por init_cuentas.c o, alternativamente, que se documente cuál es la ubicación correcta de dicho archivo.
+- **Análisis de transacciones:** Lee las transacciones desde una cola de mensajes y analiza patrones sospechosos.
+- **Alertas:** Envía alertas a través de una tubería si se detectan transacciones sospechosas.
 
-- **Archivo de log:**  
-  En banco.c se usa `LOG_FILE` por defecto, pero luego se permite que el archivo de log se configure mediante `ARCHIVO_LOG` en el fichero de configuración. Se debe asegurar que el archivo configurado tenga permisos adecuados y que las rutas sean coherentes entre los módulos.
+## Configuración
 
----
+El archivo de configuración (`config/config.txt`) contiene los siguientes parámetros:
 
-### 4. Uso de semáforos
+- `LIMITE_RETIRO`: Límite máximo para retiros.
+- `LIMITE_TRANSFERENCIA`: Límite máximo para transferencias.
+- `UMBRAL_RETIROS`: Umbral para detectar retiros consecutivos sospechosos.
+- `UMBRAL_TRANSFERENCIAS`: Umbral para detectar transferencias consecutivas sospechosas.
+- `NUM_HILOS`: Número de hilos a utilizar.
+- `ARCHIVO_CUENTAS`: Ruta del archivo de cuentas.
+- `ARCHIVO_LOG`: Ruta del archivo de log.
 
-- **Banco.c:**  
-  Se crea un semáforo para controlar el acceso al archivo de cuentas, pero en el código actual no se utiliza activamente para proteger ninguna operación de lectura o escritura en el archivo de cuentas.  
-- **Integración con otros módulos:**  
-  Si en el futuro se implementan operaciones concurrentes sobre el archivo de cuentas (por ejemplo, en usuario.c o en el monitor), se debe asegurar que el mismo semáforo se comparta o se abra de forma coherente para evitar condiciones de carrera.
+## Ejecución
 
----
+1. Compilar los programas:
 
-### Conclusión
+```sh
+gcc -o bin/banco src/banco.c -pthread -lrt
+gcc -o bin/init_cuentas src/init_cuentas.c -pthread -lrt
+gcc -o bin/monitor src/monitor.c -pthread -lrt
+gcc -o bin/usuario src/usuario.c -pthread -lrt
+```
 
-Las principales incompatibilidades se centran en la manera en que se gestiona la comunicación entre el proceso banco y los procesos usuario:  
-- **Banco.c** asume que el programa usuario es un proceso único que no crea su propia comunicación interna, sino que utiliza la redirección de STDOUT a la tubería creada por banco.c.  
-- La versión completa de **usuario.c** que desarrollamos, al incluir su propio fork y creación de tuberías, rompe esa expectativa.
+2. Inicializar el archivo de cuentas:
 
-**Recomendación:**  
-Ajustar usuario.c para que, cuando se ejecute mediante `execl` desde banco.c, actúe como un proceso que simplemente presenta el menú y escribe las operaciones en STDOUT, sin crear su propia estructura de comunicación adicional. Esto garantizará la coherencia y permitirá que banco.c lea correctamente las operaciones enviadas por cada usuario.
+```sh
+./bin/init_cuentas
+```
 
-Además, revisar y unificar las rutas y configuraciones de archivos para asegurar que todos los módulos trabajen sobre los mismos recursos.
+3. Ejecutar el programa `banco`:
 
-Estas correcciones permitirán que los tres programas (init_cuentas.c, usuario.c y banco.c) se integren de forma coherente en el sistema bancario concurrente.
+```sh
+./bin/banco
+```
+
+4. Ejecutar el programa `monitor` en otra terminal:
+
+```sh
+./bin/monitor
+```
+
+5. Los usuarios pueden interactuar con el sistema ejecutando el programa `usuario`:
+
+```sh
+./bin/usuario
+```
+
+## Notas
+
+- Asegúrese de que los archivos de configuración y datos estén en las rutas correctas.
+- Los semáforos se utilizan para proteger las operaciones concurrentes en el archivo de cuentas.
+- El archivo de log registra todas las transacciones realizadas por los usuarios.
