@@ -34,6 +34,7 @@ int fifo_lectura_fd = -1;
 
 // Mutex para sincronizar la salida
 pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex para operaciones atómicas en el log
 
 // Manejador para cerrar apropiadamente
 void manejador_terminar(int sig) {
@@ -112,6 +113,17 @@ void *ejecutar_operacion(void *arg) {
     
     // Desbloquear el mutex
     pthread_mutex_unlock(&stdout_mutex);
+
+    // Operaciones atómicas en el log
+    pthread_mutex_lock(&log_mutex);
+    FILE *log_file = fopen(LOG_FILE, "a");
+    if (log_file != NULL) {
+        fprintf(log_file, "%s", mensaje);
+        fclose(log_file);
+    } else {
+        perror("Error al abrir el archivo de log");
+    }
+    pthread_mutex_unlock(&log_mutex);
 
     free(args);
     pthread_exit(NULL);

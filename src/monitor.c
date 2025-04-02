@@ -4,10 +4,13 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <semaphore.h>
 
 #define MSG_KEY 1234
 #define ALERT_PIPE "/tmp/alert_pipe"
 #define MAX_AMOUNT 10000
+#define CUENTAS_FILE "../data/cuentas.dat"
 
 struct transaction {
     long msg_type;
@@ -29,6 +32,13 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    // Initialize semaphore for file operations
+    sem_t *sem = sem_open("/cuentas_semaphore", O_CREAT, 0644, 1);
+    if (sem == SEM_FAILED) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
+    }
+
     // Continuously read messages
     while (1) {
         if (msgrcv(msgid, &trans, sizeof(struct transaction) - sizeof(long), 0, 0) == -1) {
@@ -36,8 +46,14 @@ int main() {
             exit(EXIT_FAILURE);
         }
 
+        // Lock semaphore before analyzing transaction
+        sem_wait(sem);
+
         // Analyze the transaction
         analyze_transaction(&trans);
+
+        // Unlock semaphore after analyzing transaction
+        sem_post(sem);
     }
 
     // Close the message queue (unreachable code in this example)
@@ -45,6 +61,10 @@ int main() {
         perror("msgctl");
         exit(EXIT_FAILURE);
     }
+
+    // Close semaphore
+    sem_close(sem);
+    sem_unlink("/cuentas_semaphore");
 
     return 0;
 }
