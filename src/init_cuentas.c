@@ -14,7 +14,7 @@ typedef struct
 int main(void) 
 {
     // Ruta del archivo de cuentas
-    const char *ruta_archivo = "../data/cuentas.dat";
+    const char *ruta_archivo = "cuentas.txt";
     
     // Abrir el archivo en modo escritura binaria
     FILE *archivo = fopen(ruta_archivo, "wb");
