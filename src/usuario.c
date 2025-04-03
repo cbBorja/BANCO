@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <signal.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 256
 #define LOG_FILE "../data/transacciones.log"
@@ -117,6 +118,35 @@ void *ejecutar_operacion(void *arg) {
     pthread_exit(NULL);
 }
 
+// Función para leer mensajes del banco
+void *leer_mensajes(void *arg) {
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_leidos;
+    
+    while (1) {
+        if (fifo_lectura_fd >= 0) {
+            bytes_leidos = read(fifo_lectura_fd, buffer, sizeof(buffer) - 1);
+            
+            if (bytes_leidos > 0) {
+                buffer[bytes_leidos] = '\0';
+                
+                // Bloquear el mutex para imprimir el mensaje
+                pthread_mutex_lock(&stdout_mutex);
+                printf("\n[Mensaje del Banco]: %s\n", buffer);
+                pthread_mutex_unlock(&stdout_mutex);
+            } else if (bytes_leidos == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                perror("Error al leer del FIFO");
+                break;
+            }
+        }
+        
+        // Esperar un poco antes de intentar leer de nuevo
+        usleep(100000); // 100ms
+    }
+    
+    return NULL;
+}
+
 // Función que muestra el menú interactivo y lanza un hilo por cada operación.
 void menu_usuario(int cuenta) {
     int opcion;
@@ -206,30 +236,53 @@ int main(int argc, char *argv[]) {
     signal(SIGTERM, manejador_terminar);
     signal(SIGINT, manejador_terminar);
     
+    // Imprimir el PID del proceso usuario
+    printf("Proceso usuario iniciado con PID: %d\n", getpid());
+    
     // Si se proporcionaron nombres de FIFOs, usarlos para la comunicación
     if (argc >= 4) {
         strcpy(fifo_escritura, argv[2]); // Usuario -> Banco
         strcpy(fifo_lectura, argv[3]);   // Banco -> Usuario
         
-        // Abrir FIFO para escritura (no bloqueante)
-        fifo_escritura_fd = open(fifo_escritura, O_WRONLY);
-        if (fifo_escritura_fd < 0) {
-            perror("Error al abrir FIFO para escritura");
-        }
+        printf("Iniciando conexión con el banco...\n");
+        printf("FIFO escritura: %s\n", fifo_escritura);
+        printf("FIFO lectura: %s\n", fifo_lectura);
         
-        // Abrir FIFO para lectura (no bloqueante)
-        fifo_lectura_fd = open(fifo_lectura, O_RDONLY | O_NONBLOCK);
+        // Abrir FIFO para escritura - usando modo bloqueante para operaciones críticas
+        printf("Abriendo FIFO para escritura...\n");
+        fifo_escritura_fd = open(fifo_escritura, O_RDWR);
+        if (fifo_escritura_fd < 0) {
+            perror("Error crítico al abrir FIFO para escritura");
+            exit(EXIT_FAILURE);
+        }
+        printf("FIFO de escritura abierto correctamente (fd=%d)\n", fifo_escritura_fd);
+        
+        // Abrir FIFO para lectura - primero en modo bloqueante
+        printf("Abriendo FIFO para lectura...\n");
+        fifo_lectura_fd = open(fifo_lectura, O_RDWR);
         if (fifo_lectura_fd < 0) {
-            perror("Error al abrir FIFO para lectura");
+            perror("Error crítico al abrir FIFO para lectura");
+            close(fifo_escritura_fd);
+            exit(EXIT_FAILURE);
+        }
+        printf("FIFO de lectura abierto correctamente (fd=%d)\n", fifo_lectura_fd);
+        
+        // Configurar modo no bloqueante para el FIFO de lectura después de establecer la conexión
+        fcntl(fifo_lectura_fd, F_SETFL, fcntl(fifo_lectura_fd, F_GETFL) | O_NONBLOCK);
+        
+        // Crear un hilo para leer mensajes del banco
+        pthread_t hilo_lector;
+        if (pthread_create(&hilo_lector, NULL, leer_mensajes, NULL) != 0) {
+            perror("Error al crear hilo para leer mensajes");
+        } else {
+            pthread_detach(hilo_lector);
         }
         
         // Enviar mensaje de inicio
-        if (fifo_escritura_fd >= 0) {
-            char mensaje[BUFFER_SIZE];
-            sprintf(mensaje, "Usuario con cuenta %d ha iniciado sesión.\n", numero_cuenta);
-            if (write(fifo_escritura_fd, mensaje, strlen(mensaje)) < 0) {
-                perror("Error al enviar mensaje de inicio");
-            }
+        char mensaje[BUFFER_SIZE];
+        sprintf(mensaje, "Usuario con cuenta %d ha iniciado sesión.\n", numero_cuenta);
+        if (write(fifo_escritura_fd, mensaje, strlen(mensaje)) < 0) {
+            perror("Error al enviar mensaje de inicio");
         }
     }
     
