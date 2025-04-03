@@ -8,9 +8,31 @@
 #include <fcntl.h>
 #include <time.h>
 #include <signal.h>
+#include <sys/select.h>
+#include <sys/stat.h>
+#include <stdarg.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 256
 #define LOG_FILE "../data/transacciones.log"
+
+// Debug function to log with timestamp
+void debug_log(const char *format, ...) {
+    char timestamp[30];
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
+    
+    va_list args;
+    va_start(args, format);
+    
+    printf("[USUARIO %s] ", timestamp);
+    vprintf(format, args);
+    printf("\n");
+    fflush(stdout);
+    
+    va_end(args);
+}
 
 // Definición de la estructura Operacion.
 typedef struct {
@@ -82,7 +104,7 @@ void *ejecutar_operacion(void *arg) {
                    timestamp, args->op.monto, args->op.cuenta);
             break;
         case 4:
-            sprintf(mensaje, "[%s] Consulta de saldo en la cuenta %d completada.\n", 
+            sprintf(mensaje, "[%s] Consulta de saldo en la cuenta %d solicitada.\n", 
                    timestamp, args->op.cuenta);
             break;
         default:
@@ -91,28 +113,92 @@ void *ejecutar_operacion(void *arg) {
             break;
     }
     
-    // Mostrar en pantalla para el usuario
-    printf("%s", mensaje);
-    
     // Enviar mensaje al banco a través del FIFO
     if (fifo_escritura_fd >= 0) {
-        // Si el FIFO se cerró, intentamos reabrirlo
-        if (fifo_escritura_fd == -1) {
-            fifo_escritura_fd = open(fifo_escritura, O_WRONLY);
+        printf("[DEBUG] Enviando mensaje al banco: %s", mensaje);
+        ssize_t bytes_escritos = write(fifo_escritura_fd, mensaje, strlen(mensaje));
+        if (bytes_escritos < 0) {
+            perror("[ERROR] Error al escribir en FIFO");
+            pthread_mutex_unlock(&stdout_mutex);
+            free(args);
+            pthread_exit(NULL);
+        } else {
+            printf("[DEBUG] Mensaje enviado correctamente: %ld bytes escritos\n", bytes_escritos);
+        }
+    }
+    
+    // Si es una consulta de saldo, esperar respuesta del banco
+    if (args->op.tipo_operacion == 4 && fifo_lectura_fd >= 0) {
+        debug_log("Preparando para consulta de saldo con cuenta %d", args->op.cuenta);
+        
+        // Use direct mode setting instead of toggling between modes
+        int original_flags = fcntl(fifo_lectura_fd, F_GETFL);
+        fcntl(fifo_lectura_fd, F_SETFL, original_flags & ~O_NONBLOCK); // Set blocking
+        
+        debug_log("Esperando respuesta del banco (puede tardar unos segundos)...");
+        printf("Esperando respuesta del banco...\n");
+        
+        // Use select() with a timeout and limited retries
+        int max_retries = 3;
+        int retry_count = 0;
+        int got_response = 0;
+        
+        while (retry_count < max_retries && !got_response) {
+            fd_set readfds;
+            struct timeval tv;
+            FD_ZERO(&readfds);
+            FD_SET(fifo_lectura_fd, &readfds);
+            tv.tv_sec = 5;  // 5 second timeout per retry
+            tv.tv_usec = 0;
+            
+            debug_log("Intento %d de %d para leer respuesta", retry_count + 1, max_retries);
+            int ret = select(fifo_lectura_fd + 1, &readfds, NULL, NULL, &tv);
+            
+            if (ret == -1) {
+                debug_log("ERROR en select(): %s", strerror(errno));
+                retry_count++;
+                continue;
+            } else if (ret == 0) {
+                debug_log("Timeout de 5 segundos esperando respuesta");
+                retry_count++;
+                continue;
+            } else {
+                // Data available
+                debug_log("¡Hay datos disponibles para leer!");
+                
+                // Clear buffer and read data
+                char buffer[BUFFER_SIZE * 2] = {0};
+                ssize_t bytes_leidos = read(fifo_lectura_fd, buffer, sizeof(buffer) - 1);
+                
+                if (bytes_leidos > 0) {
+                    buffer[bytes_leidos] = '\0'; // Ensure null termination
+                    debug_log("Datos recibidos: '%s'", buffer);
+                    printf("Respuesta del banco: %s\n", buffer);
+                    got_response = 1;  // Got a valid response
+                } else if (bytes_leidos == 0) {
+                    debug_log("EOF detectado - El banco cerró la conexión sin enviar datos");
+                    retry_count++;
+                    continue;
+                } else {
+                    debug_log("Error al leer del FIFO: %s", strerror(errno));
+                    retry_count++;
+                    continue;
+                }
+            }
         }
         
-        if (fifo_escritura_fd >= 0) {
-            if (write(fifo_escritura_fd, mensaje, strlen(mensaje)) < 0) {
-                perror("Error al escribir en FIFO");
-            }
-        } else {
-            perror("No se pudo abrir el FIFO para escritura");
+        if (!got_response) {
+            printf("No se pudo obtener respuesta del banco después de %d intentos\n", max_retries);
         }
+        
+        // Restore original flags
+        fcntl(fifo_lectura_fd, F_SETFL, original_flags);
+        debug_log("Restaurada configuración original del FIFO");
     }
     
     // Desbloquear el mutex
     pthread_mutex_unlock(&stdout_mutex);
-
+    
     free(args);
     pthread_exit(NULL);
 }
@@ -211,16 +297,26 @@ int main(int argc, char *argv[]) {
         strcpy(fifo_escritura, argv[2]); // Usuario -> Banco
         strcpy(fifo_lectura, argv[3]);   // Banco -> Usuario
         
-        // Abrir FIFO para escritura (no bloqueante)
+        printf("Conectando con el banco...\n");
+        printf("FIFO escritura: %s\n", fifo_escritura);
+        printf("FIFO lectura: %s\n", fifo_lectura);
+        
+        // Abrir FIFO para escritura (bloqueante)
+        printf("Abriendo FIFO para escritura...\n");
         fifo_escritura_fd = open(fifo_escritura, O_WRONLY);
         if (fifo_escritura_fd < 0) {
             perror("Error al abrir FIFO para escritura");
+            exit(EXIT_FAILURE);
         }
         
-        // Abrir FIFO para lectura (no bloqueante)
+        // Abrir FIFO para lectura (no bloqueante para evitar que el programa
+        // se quede colgado en la apertura si no hay datos)
+        printf("Abriendo FIFO para lectura...\n");
         fifo_lectura_fd = open(fifo_lectura, O_RDONLY | O_NONBLOCK);
         if (fifo_lectura_fd < 0) {
             perror("Error al abrir FIFO para lectura");
+            close(fifo_escritura_fd);
+            exit(EXIT_FAILURE);
         }
         
         // Enviar mensaje de inicio
