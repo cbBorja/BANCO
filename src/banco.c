@@ -42,6 +42,20 @@ typedef struct {
 
 InfoUsuario usuarios[MAX_USUARIOS_SIMULTANEOS];
 
+// Estructura para una cuenta (ya existe en tu código)
+typedef struct {
+    int numero_cuenta;
+    char titular[50];
+    float saldo;
+    int num_transacciones;
+} Cuenta;
+
+// Prototipos de funciones
+bool actualizar_cuenta_deposito(int cuenta, float monto, sem_t *sem, const char *archivo_cuentas);
+bool actualizar_cuenta_retiro(int cuenta, float monto, sem_t *sem, const char *archivo_cuentas);
+bool actualizar_cuenta_transferencia(int cuenta_origen, int cuenta_destino, float monto, sem_t *sem, const char *archivo_cuentas);
+float consultar_saldo_cuenta(int cuenta, sem_t *sem, const char *archivo_cuentas);
+
 /* Función para manejar señales y terminar adecuadamente */
 void manejador_senales(int sig) {
     printf("\nSeñal recibida (%d). Terminando proceso banco...\n", sig);
@@ -409,27 +423,59 @@ int main() {
                         int cuenta_msg = 0; // Para almacenar cuenta extraída del mensaje
                         
                         // Determinar tipo de operación basado en el mensaje
-                        if (strstr(buffer, "Depósito") != NULL) {
-                            // Respuesta para depósito
-                            sscanf(buffer, "[%*[^]]] Depósito de %lf en la cuenta %d", &monto, &cuenta_msg);
-                            printf("DEBUG: Extrayendo Depósito - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
-                            sprintf(respuesta, "Banco: Depósito de %.2f recibido y procesado.\n", monto);
-                        } 
-                        else if (strstr(buffer, "Retiro") != NULL) {
-                            // Respuesta para retiro
-                            sscanf(buffer, "[%*[^]]] Retiro de %lf de la cuenta %d", &monto, &cuenta_msg);
-                            printf("DEBUG: Extrayendo Retiro - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
-                            sprintf(respuesta, "Banco: Retiro de %.2f procesado.\n", monto);
-                        }
-                        else if (strstr(buffer, "Transferencia") != NULL) {
-                            sscanf(buffer, "[%*[^]]] Transferencia de %lf desde la cuenta %d", &monto, &cuenta_msg);
-                            printf("DEBUG: Extrayendo Transferencia - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
-                            sprintf(respuesta, "Banco: Transferencia de %.2f procesada.\n", monto);
-                        }
-                        else if (strstr(buffer, "Consulta de saldo") != NULL) {
-                            sscanf(buffer, "[%*[^]]] Consulta de saldo en la cuenta %d completada.", &cuenta_msg);
-                            printf("DEBUG: Consultando saldo para cuenta %d (extraída del mensaje)\n", cuenta_msg);
-                            
+                        // Determinar tipo de operación basado en el mensaje
+if (strstr(buffer, "Depósito") != NULL) {
+    sscanf(buffer, "[%*[^]]] Depósito de %lf en la cuenta %d", &monto, &cuenta_msg);
+    printf("DEBUG: Extrayendo Depósito - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
+    
+    if (actualizar_cuenta_deposito(cuenta_msg, monto, sem, config.archivo_cuentas)) {
+        sprintf(respuesta, "Banco: Depósito de %.2f recibido. Nuevo saldo: %.2f\n", 
+                monto, consultar_saldo_cuenta(cuenta_msg, sem, config.archivo_cuentas));
+    } else {
+        sprintf(respuesta, "Banco: Error al procesar el depósito en la cuenta %d\n", cuenta_msg);
+    }
+} 
+else if (strstr(buffer, "Retiro") != NULL) {
+    sscanf(buffer, "[%*[^]]] Retiro de %lf de la cuenta %d", &monto, &cuenta_msg);
+    printf("DEBUG: Extrayendo Retiro - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
+    
+    if (actualizar_cuenta_retiro(cuenta_msg, monto, sem, config.archivo_cuentas)) {
+        sprintf(respuesta, "Banco: Retiro de %.2f procesado. Nuevo saldo: %.2f\n", 
+                monto, consultar_saldo_cuenta(cuenta_msg, sem, config.archivo_cuentas));
+    } else {
+        sprintf(respuesta, "Banco: Error al procesar el retiro (¿saldo insuficiente?)\n");
+    }
+}
+else if (strstr(buffer, "Transferencia") != NULL) {
+    int cuenta_destino;
+    sscanf(buffer, "[%*[^]]] Transferencia de %lf desde la cuenta %d a la cuenta %d", 
+           &monto, &cuenta_msg, &cuenta_destino);
+    printf("DEBUG: Extrayendo Transferencia - monto=%.2f, origen=%d, destino=%d\n", 
+           monto, cuenta_msg, cuenta_destino);
+    
+    if (actualizar_cuenta_transferencia(cuenta_msg, cuenta_destino, monto, sem, config.archivo_cuentas)) {
+        sprintf(respuesta, "Banco: Transferencia de %.2f completada. Nuevos saldos:\n"
+                          "  Origen (%d): %.2f\n"
+                          "  Destino (%d): %.2f\n", 
+                monto, 
+                cuenta_msg, consultar_saldo_cuenta(cuenta_msg, sem, config.archivo_cuentas),
+                cuenta_destino, consultar_saldo_cuenta(cuenta_destino, sem, config.archivo_cuentas));
+    } else {
+        sprintf(respuesta, "Banco: Error al procesar la transferencia\n");
+    }
+}
+else if (strstr(buffer, "Consulta de saldo") != NULL) {
+    sscanf(buffer, "[%*[^]]] Consulta de saldo en la cuenta %d", &cuenta_msg);
+    printf("DEBUG: Consultando saldo para cuenta %d\n", cuenta_msg);
+    
+    float saldo = consultar_saldo_cuenta(cuenta_msg, sem, config.archivo_cuentas);
+    if (saldo >= 0) {
+        sprintf(respuesta, "Banco: Saldo actual de la cuenta %d: $%.2f\n", 
+                cuenta_msg, saldo);
+    } else {
+        sprintf(respuesta, "Banco: No se encontró la cuenta %d\n", cuenta_msg);
+    }
+}
                             // Consulta de saldo - leer el archivo de cuentas
                             sem_wait(sem);
                             double saldo = -1;
@@ -520,4 +566,220 @@ int main() {
 
     printf("Proceso del banco finalizado correctamente.\n");
     return EXIT_SUCCESS;
+}
+
+bool actualizar_cuenta_deposito(int cuenta, float monto, sem_t *sem, const char *archivo_cuentas) {
+    sem_wait(sem);
+    bool exito = false;
+    
+    // Leer todas las cuentas
+    FILE *archivo = fopen(archivo_cuentas, "r");
+    if (!archivo) {
+        perror("Error al abrir archivo de cuentas para lectura");
+        sem_post(sem);
+        return false;
+    }
+    
+    Cuenta cuentas[MAX_USUARIOS_SIMULTANEOS];
+    int num_cuentas = 0;
+    char linea[256];
+    
+    while (fgets(linea, sizeof(linea), archivo && num_cuentas < MAX_USUARIOS_SIMULTANEOS) {
+        sscanf(linea, "%d|%49[^|]|%f|%d", 
+               &cuentas[num_cuentas].numero_cuenta,
+               cuentas[num_cuentas].titular,
+               &cuentas[num_cuentas].saldo,
+               &cuentas[num_cuentas].num_transacciones);
+        num_cuentas++;
+    }
+    fclose(archivo);
+    
+    // Buscar y actualizar la cuenta
+    for (int i = 0; i < num_cuentas; i++) {
+        if (cuentas[i].numero_cuenta == cuenta) {
+            cuentas[i].saldo += monto;
+            cuentas[i].num_transacciones++;
+            exito = true;
+            break;
+        }
+    }
+    
+    if (exito) {
+        // Escribir las cuentas actualizadas
+        archivo = fopen(archivo_cuentas, "w");
+        if (!archivo) {
+            perror("Error al abrir archivo de cuentas para escritura");
+            sem_post(sem);
+            return false;
+        }
+        
+        for (int i = 0; i < num_cuentas; i++) {
+            fprintf(archivo, "%d|%s|%.2f|%d\n",
+                    cuentas[i].numero_cuenta,
+                    cuentas[i].titular,
+                    cuentas[i].saldo,
+                    cuentas[i].num_transacciones);
+        }
+        fclose(archivo);
+    }
+    
+    sem_post(sem);
+    return exito;
+}
+
+bool actualizar_cuenta_retiro(int cuenta, float monto, sem_t *sem, const char *archivo_cuentas) {
+    sem_wait(sem);
+    bool exito = false;
+    
+    FILE *archivo = fopen(archivo_cuentas, "r");
+    if (!archivo) {
+        perror("Error al abrir archivo de cuentas para lectura");
+        sem_post(sem);
+        return false;
+    }
+    
+    Cuenta cuentas[MAX_USUARIOS_SIMULTANEOS];
+    int num_cuentas = 0;
+    char linea[256];
+    
+    while (fgets(linea, sizeof(linea), archivo) && num_cuentas < MAX_USUARIOS_SIMULTANEOS) {
+        sscanf(linea, "%d|%49[^|]|%f|%d", 
+               &cuentas[num_cuentas].numero_cuenta,
+               cuentas[num_cuentas].titular,
+               &cuentas[num_cuentas].saldo,
+               &cuentas[num_cuentas].num_transacciones);
+        num_cuentas++;
+    }
+    fclose(archivo);
+    
+    // Buscar cuenta y verificar saldo
+    for (int i = 0; i < num_cuentas; i++) {
+        if (cuentas[i].numero_cuenta == cuenta) {
+            if (cuentas[i].saldo >= monto) {
+                cuentas[i].saldo -= monto;
+                cuentas[i].num_transacciones++;
+                exito = true;
+            }
+            break;
+        }
+    }
+    
+    if (exito) {
+        archivo = fopen(archivo_cuentas, "w");
+        if (!archivo) {
+            perror("Error al abrir archivo de cuentas para escritura");
+            sem_post(sem);
+            return false;
+        }
+        
+        for (int i = 0; i < num_cuentas; i++) {
+            fprintf(archivo, "%d|%s|%.2f|%d\n",
+                    cuentas[i].numero_cuenta,
+                    cuentas[i].titular,
+                    cuentas[i].saldo,
+                    cuentas[i].num_transacciones);
+        }
+        fclose(archivo);
+    }
+    
+    sem_post(sem);
+    return exito;
+}
+
+bool actualizar_cuenta_transferencia(int cuenta_origen, int cuenta_destino, float monto, sem_t *sem, const char *archivo_cuentas) {
+    sem_wait(sem);
+    bool exito = false;
+    bool origen_encontrado = false;
+    bool destino_encontrado = false;
+    
+    FILE *archivo = fopen(archivo_cuentas, "r");
+    if (!archivo) {
+        perror("Error al abrir archivo de cuentas para lectura");
+        sem_post(sem);
+        return false;
+    }
+    
+    Cuenta cuentas[MAX_USUARIOS_SIMULTANEOS];
+    int num_cuentas = 0;
+    char linea[256];
+    
+    while (fgets(linea, sizeof(linea), archivo) && num_cuentas < MAX_USUARIOS_SIMULTANEOS) {
+        sscanf(linea, "%d|%49[^|]|%f|%d", 
+               &cuentas[num_cuentas].numero_cuenta,
+               cuentas[num_cuentas].titular,
+               &cuentas[num_cuentas].saldo,
+               &cuentas[num_cuentas].num_transacciones);
+        num_cuentas++;
+    }
+    fclose(archivo);
+    
+    // Buscar cuentas
+    for (int i = 0; i < num_cuentas; i++) {
+        if (cuentas[i].numero_cuenta == cuenta_origen) {
+            if (cuentas[i].saldo >= monto) {
+                cuentas[i].saldo -= monto;
+                cuentas[i].num_transacciones++;
+                origen_encontrado = true;
+            }
+        }
+        if (cuentas[i].numero_cuenta == cuenta_destino) {
+            cuentas[i].saldo += monto;
+            cuentas[i].num_transacciones++;
+            destino_encontrado = true;
+        }
+    }
+    
+    if (origen_encontrado && destino_encontrado) {
+        archivo = fopen(archivo_cuentas, "w");
+        if (!archivo) {
+            perror("Error al abrir archivo de cuentas para escritura");
+            sem_post(sem);
+            return false;
+        }
+        
+        for (int i = 0; i < num_cuentas; i++) {
+            fprintf(archivo, "%d|%s|%.2f|%d\n",
+                    cuentas[i].numero_cuenta,
+                    cuentas[i].titular,
+                    cuentas[i].saldo,
+                    cuentas[i].num_transacciones);
+        }
+        fclose(archivo);
+        exito = true;
+    }
+    
+    sem_post(sem);
+    return exito;
+}
+
+float consultar_saldo_cuenta(int cuenta, sem_t *sem, const char *archivo_cuentas) {
+    sem_wait(sem);
+    float saldo = -1.0f; // Valor negativo indica error
+    
+    FILE *archivo = fopen(archivo_cuentas, "r");
+    if (!archivo) {
+        perror("Error al abrir archivo de cuentas para lectura");
+        sem_post(sem);
+        return saldo;
+    }
+    
+    char linea[256];
+    while (fgets(linea, sizeof(linea), archivo)) {
+        int current_cuenta;
+        char titular[50];
+        float current_saldo;
+        int transacciones;
+        
+        if (sscanf(linea, "%d|%49[^|]|%f|%d", 
+                  &current_cuenta, titular, &current_saldo, &transacciones) == 4) {
+            if (current_cuenta == cuenta) {
+                saldo = current_saldo;
+                break;
+            }
+        }
+    }
+    
+    fclose(archivo);
+    sem_post(sem);
+    return saldo;
 }
