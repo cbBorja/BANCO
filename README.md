@@ -1,5 +1,9 @@
-# Banco
+```sh
 
+$ gcc -o bin/usuario src/usuario.c -pthread -lrt && \gcc -o bin/monitor src/monitor.c -pthread -lrt && \gcc -o bin/init_cuentas src/init_cuentas.c -pthread -lrt && \gcc -o bin/banco src/banco.c -pthread -lrt
+
+```
+# Banco
 Este proyecto implementa un sistema bancario concurrente utilizando múltiples procesos y comunicación entre ellos. A continuación, se describen los componentes principales del sistema y cómo se integran.
 
 ## Componentes
