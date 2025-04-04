@@ -42,13 +42,12 @@ typedef struct {
 
 InfoUsuario usuarios[MAX_USUARIOS_SIMULTANEOS];
 
-
-
 /* Función para manejar señales y terminar adecuadamente */
 void manejador_senales(int sig) {
     printf("\nSeñal recibida (%d). Terminando proceso banco...\n", sig);
     continuar_ejecucion = 0;
 }
+
 
 /* Función para leer la configuración desde el archivo.
    Se espera que cada línea siga el formato clave=valor sin espacios extra. */
@@ -410,7 +409,8 @@ int main() {
                         double monto = 0.0;
                         int cuenta_msg = 0; // Para almacenar cuenta extraída del mensaje
                         
-                        /if (strstr(buffer, "Depósito") != NULL) {
+                        // Determinar tipo de operación basado en el mensaje
+                        if (strstr(buffer, "Depósito") != NULL) {
                             // Respuesta para depósito
                             sscanf(buffer, "[%*[^]]] Depósito de %lf en la cuenta %d", &monto, &cuenta_msg);
                             printf("DEBUG: Extrayendo Depósito - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
@@ -430,7 +430,7 @@ int main() {
                         else if (strstr(buffer, "Consulta de saldo") != NULL) {
                             sscanf(buffer, "[%*[^]]] Consulta de saldo en la cuenta %d completada.", &cuenta_msg);
                             printf("DEBUG: Consultando saldo para cuenta %d (extraída del mensaje)\n", cuenta_msg);
-                            como hago para que si seleccione depositar/transferencia sume el dinero que ya tenia previamente el usuario al que le hemos pasado y sobrescriba el archivo de init_cuentas.c y si selecciona retirar reste la cantidad introducida menos la que tenia el usuario y sobrescriba el archivo
+                            
                             // Consulta de saldo - leer el archivo de cuentas
                             sem_wait(sem);
                             double saldo = -1;
@@ -522,4 +522,3 @@ int main() {
     printf("Proceso del banco finalizado correctamente.\n");
     return EXIT_SUCCESS;
 }
-
