@@ -92,3 +92,7 @@ Usuario conectado: Cuenta 1001 (PID: 8684)
 Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
 Usuario (Cuenta 1001): [2025-04-03 21:28:24] Consulta de saldo en la cuenta 1001 completada.
 Usuario desconectado: PID 8684
+Usuario conectado: Cuenta 1001 (PID: 3433)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-04 08:03:58] Consulta de saldo en la cuenta 1001 completada.
+Usuario desconectado: PID 3433
