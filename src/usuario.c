@@ -19,6 +19,7 @@ typedef struct {
     double monto;
     int cuenta;
     // Descriptor de archivo para escribir al banco
+    int cuenta_destino; // Solo para transferencias
     int fifo_fd;
 } Operacion;
 

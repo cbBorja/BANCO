@@ -60,7 +60,7 @@ double obtener_saldo(int cuenta) {
     char linea[256];
     double saldo = -1;
     
-    while (fgets(linea, sizeof(linea), archivo) {
+    while (fgets(linea, sizeof(linea), archivo) ){
         int current_cuenta;
         char titular[50];
         double current_saldo;
@@ -99,7 +99,7 @@ int procesar_operacion(int cuenta, const char *operacion, double monto, FILE *lo
         return 0;
     }
 
-    while (fgets(linea, sizeof(linea), archivo) {
+    while (fgets(linea, sizeof(linea), archivo)) {
         int current_cuenta;
         char titular[50];
         double saldo;
