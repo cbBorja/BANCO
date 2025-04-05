@@ -48,7 +48,6 @@ void manejador_senales(int sig) {
     continuar_ejecucion = 0;
 }
 
-
 // Función para obtener saldo de una cuenta
 double obtener_saldo(int cuenta) {
     FILE *archivo = fopen(config.archivo_cuentas, "r");
@@ -60,7 +59,7 @@ double obtener_saldo(int cuenta) {
     char linea[256];
     double saldo = -1;
     
-    while (fgets(linea, sizeof(linea), archivo) {
+    while (fgets(linea, sizeof(linea), archivo)) {
         int current_cuenta;
         char titular[50];
         double current_saldo;
@@ -99,7 +98,7 @@ int procesar_operacion(int cuenta, const char *operacion, double monto, FILE *lo
         return 0;
     }
 
-    while (fgets(linea, sizeof(linea), archivo) {
+    while (fgets(linea, sizeof(linea), archivo)) {
         int current_cuenta;
         char titular[50];
         double saldo;
@@ -133,9 +132,7 @@ int procesar_operacion(int cuenta, const char *operacion, double monto, FILE *lo
     return operacion_exitosa;
 }
 
-
-/* Función para leer la configuración desde el archivo.
-   Se espera que cada línea siga el formato clave=valor sin espacios extra. */
+/* Función para leer la configuración desde el archivo */
 void leer_configuracion(const char *filename, Config *cfg) {
     FILE *file = fopen(filename, "r");
     if (file == NULL) {
@@ -145,7 +142,6 @@ void leer_configuracion(const char *filename, Config *cfg) {
     
     char line[256];
     while (fgets(line, sizeof(line), file)) {
-        // Eliminar salto de línea
         line[strcspn(line, "\n")] = 0;
         if (strncmp(line, "LIMITE_RETIRO=", 14) == 0) {
             cfg->limite_retiro = atoi(line + 14);
@@ -191,7 +187,6 @@ void limpiar_recursos_usuario(int idx) {
         usuarios[idx].fifo_escritura_fd = 0;
     }
     
-    // Eliminar los FIFOs
     if (strlen(usuarios[idx].fifo_lectura) > 0) {
         unlink(usuarios[idx].fifo_lectura);
         usuarios[idx].fifo_lectura[0] = '\0';
@@ -245,7 +240,7 @@ int main() {
     // Variables para el manejo no bloqueante de la entrada
     fd_set read_fds;
     struct timeval tv;
-    int stdin_fd = fileno(stdin); // Descriptor de archivo para stdin
+    int stdin_fd = fileno(stdin);
     fcntl(stdin_fd, F_SETFL, fcntl(stdin_fd, F_GETFL) | O_NONBLOCK);
 
     // Bucle principal mejorado
@@ -254,14 +249,12 @@ int main() {
         FD_ZERO(&read_fds);
         FD_SET(stdin_fd, &read_fds);
         tv.tv_sec = 0;
-        tv.tv_usec = 1000; // 1ms timeout
+        tv.tv_usec = 1000;
         
-        // Comprobar si hay entrada disponible (nuevo número de cuenta)
         if (select(stdin_fd + 1, &read_fds, NULL, NULL, &tv) > 0) {
             int cuenta_usuario;
             int slot_disponible = -1;
 
-            // Buscar un slot disponible para un nuevo usuario
             for (int i = 0; i < MAX_USUARIOS_SIMULTANEOS; i++) {
                 if (usuarios[i].pid == 0) {
                     slot_disponible = i;
@@ -271,17 +264,15 @@ int main() {
 
             if (slot_disponible == -1) {
                 printf("Se ha alcanzado el límite de usuarios simultáneos. Espere...\n");
-                // Consumir la entrada
                 int tmp;
                 scanf("%d", &tmp);
                 continue;
             }
 
-            // Leer el número de cuenta
             printf("Ingrese el número de cuenta (o 0 para salir): ");
             if (scanf("%d", &cuenta_usuario) != 1) {
                 printf("Entrada inválida. Intente de nuevo.\n");
-                while (getchar() != '\n'); // Limpiar buffer
+                while (getchar() != '\n');
                 continue;
             }
 
@@ -291,24 +282,20 @@ int main() {
                 continue;
             }
 
-            // Crear FIFOs ANTES de forkear
             char fifo_to_usuario[100], fifo_from_usuario[100];
             sprintf(fifo_to_usuario, "%s%d_to_user", FIFO_BASE_PATH, slot_disponible);
             sprintf(fifo_from_usuario, "%s%d_from_user", FIFO_BASE_PATH, slot_disponible);
             
-            // Guardar nombres en struct
             strcpy(usuarios[slot_disponible].fifo_escritura, fifo_to_usuario);
             strcpy(usuarios[slot_disponible].fifo_lectura, fifo_from_usuario);
             
             if (crear_fifo(fifo_to_usuario) < 0 || crear_fifo(fifo_from_usuario) < 0) {
                 fprintf(stderr, "Error al crear FIFOs para el usuario %d\n", cuenta_usuario);
-                // Limpiar FIFOs si uno falló
                 unlink(fifo_to_usuario);
                 unlink(fifo_from_usuario);
                 continue;
             }
             
-            // Abrir extremo de LECTURA del banco ANTES de forkear
             usuarios[slot_disponible].fifo_lectura_fd = open(fifo_from_usuario, O_RDWR | O_NONBLOCK);
             if (usuarios[slot_disponible].fifo_lectura_fd < 0) {
                 perror("Error al abrir FIFO para lectura (banco)");
@@ -320,15 +307,12 @@ int main() {
             pid_t pid = fork();
             if (pid < 0) {
                 perror("Error al crear el proceso hijo");
-                close(usuarios[slot_disponible].fifo_lectura_fd); // Cerrar el que abrimos
+                close(usuarios[slot_disponible].fifo_lectura_fd);
                 unlink(fifo_to_usuario);
                 unlink(fifo_from_usuario);
                 usuarios[slot_disponible].pid = 0;
                 continue;
             } else if (pid == 0) {
-                // ***** PROCESO HIJO *****
-                
-                // Cerrar descriptores innecesarios heredados
                 close(usuarios[slot_disponible].fifo_lectura_fd);
                 
                 char cuenta_str[20];
@@ -336,8 +320,6 @@ int main() {
                 char titulo_ventana[64];
                 sprintf(titulo_ventana, "Usuario Banco - Cuenta %d", cuenta_usuario);
                 
-                // SOLUCIÓN: Usar execvp en lugar de system para mantener el PID correcto
-                // Construir argumentos para execvp
                 char *args[] = {
                     "xterm",
                     "-T", titulo_ventana,
@@ -351,11 +333,9 @@ int main() {
 
                 execvp("xterm", args);
                 
-                // Si xterm falla, intentar con gnome-terminal
                 fprintf(stderr, "[Hijo %d] Falló execvp con xterm: %s. Intentando gnome-terminal...\n", 
                         getpid(), strerror(errno));
                 
-                // Construir argumentos para gnome-terminal
                 char *args_gnome[] = {
                     "gnome-terminal",
                     "--",
@@ -368,11 +348,9 @@ int main() {
                 
                 execvp("gnome-terminal", args_gnome);
                 
-                // Si ambos fallan, intentar ejecutar directamente
                 fprintf(stderr, "[Hijo %d] Falló execvp con gnome-terminal: %s. Ejecutando usuario directamente...\n", 
                         getpid(), strerror(errno));
                 
-                // Construir argumentos para usuario directo
                 char *args_usuario[] = {
                     "./usuario", 
                     cuenta_str, 
@@ -383,18 +361,15 @@ int main() {
                 
                 execvp("./usuario", args_usuario);
                 
-                // Si todo falla, mostrar error y salir
                 perror("[Hijo] Error crítico: No se pudo ejecutar ninguna terminal ni el usuario");
                 exit(EXIT_FAILURE);
                 
             } else {
-                // ***** PROCESO PADRE (BANCO) *****
                 usuarios[slot_disponible].pid = pid;
                 usuarios[slot_disponible].cuenta = cuenta_usuario;
                 
                 printf("Proceso usuario lanzado con PID: %d para cuenta %d\n", pid, cuenta_usuario);
                 
-                // Ahora, intentar abrir el FIFO de escritura del banco sin O_NONBLOCK para operaciones críticas
                 usuarios[slot_disponible].fifo_escritura_fd = open(fifo_to_usuario, O_RDWR);
                 if (usuarios[slot_disponible].fifo_escritura_fd < 0) {
                     perror("Error al abrir FIFO para escritura (banco)");
@@ -405,7 +380,6 @@ int main() {
                     continue;
                 }
                 
-                // Cambiar el FIFO de lectura también a modo bloqueante para operaciones críticas
                 close(usuarios[slot_disponible].fifo_lectura_fd);
                 usuarios[slot_disponible].fifo_lectura_fd = open(fifo_from_usuario, O_RDWR);
                 if (usuarios[slot_disponible].fifo_lectura_fd < 0) {
@@ -417,7 +391,6 @@ int main() {
                     continue;
                 }
                 
-                // Configurar el modo no-bloqueante después de establecer la conexión
                 fcntl(usuarios[slot_disponible].fifo_lectura_fd, F_SETFL, 
                       fcntl(usuarios[slot_disponible].fifo_lectura_fd, F_GETFL) | O_NONBLOCK);
                 
@@ -425,10 +398,8 @@ int main() {
                 fprintf(log_file, "Usuario conectado: Cuenta %d (PID: %d)\n", cuenta_usuario, pid);
                 fflush(log_file);
                 
-                // Esperar un poco para asegurar que el usuario esté listo
-                usleep(200000); // 200ms
+                usleep(200000);
                 
-                // Enviar mensaje de bienvenida
                 char mensaje_bienvenida[256];
                 sprintf(mensaje_bienvenida, "Bienvenido usuario con cuenta %d. Conexión establecida con el banco.\n", cuenta_usuario);
                 if (write(usuarios[slot_disponible].fifo_escritura_fd, mensaje_bienvenida, strlen(mensaje_bienvenida)) < 0) {
@@ -443,7 +414,7 @@ int main() {
                 int status;
                 pid_t result = waitpid(usuarios[i].pid, &status, WNOHANG);
                 
-                if (result == usuarios[i].pid) { // El hijo específico terminó
+                if (result == usuarios[i].pid) {
                     printf("Usuario (Terminal PID: %d) desconectado.\n", usuarios[i].pid);
                     if (WIFEXITED(status)) {
                         printf("  Estado de salida: %d\n", WEXITSTATUS(status));
@@ -463,7 +434,7 @@ int main() {
 
         // 3. Procesar los mensajes de los usuarios activos (no bloqueante)
         for (int i = 0; i < MAX_USUARIOS_SIMULTANEOS; i++) {
-            if (usuarios[i].fifo_lectura_fd > 0) { // Asegurarse que el FD es válido
+            if (usuarios[i].fifo_lectura_fd > 0) {
                 char buffer[256];
                 fd_set set;
                 struct timeval timeout;
@@ -472,118 +443,102 @@ int main() {
                 FD_SET(usuarios[i].fifo_lectura_fd, &set);
                 
                 timeout.tv_sec = 0;
-                timeout.tv_usec = 1000; // 1ms timeout para no bloquearse
+                timeout.tv_usec = 1000;
                 
                 int ready = select(usuarios[i].fifo_lectura_fd + 1, &set, NULL, NULL, &timeout);
                 
                 if (ready > 0 && FD_ISSET(usuarios[i].fifo_lectura_fd, &set)) {
-    char buffer[256];
-    ssize_t nbytes = read(usuarios[i].fifo_lectura_fd, buffer, sizeof(buffer) - 1);
-    
-                if (nbytes > 0) {
-                    buffer[nbytes] = '\0';
-                    char respuesta[512];
-                    char operacion[20] = {0};
-                    double monto = 0;
-                    int cuenta = 0;
-                    int cuenta_destino = 0;
-            
-                    // Parseo mejorado
-                    int campos = sscanf(buffer, "%19[^|]|%d|%lf|%d", operacion, &cuenta, &monto, &cuenta_destino);
-            
-                    // Validación básica
-                    if (campos < 2 || cuenta != usuarios[i].cuenta) {
-                        sprintf(respuesta, "ERROR|Datos inválidos\n");
-                        write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta));
-                        continue;
-                    }
-            
-                    // Procesar operación
-                    if (strcmp(operacion, "CONSULTA") == 0) {
-                        sem_wait(sem);
-                        double saldo = obtener_saldo(cuenta);
-                        sem_post(sem);
-                        
-                        if (saldo >= 0) {
-                            sprintf(respuesta, "SALDO|%.2f\n", saldo);
-                        } else {
-                            sprintf(respuesta, "ERROR|Cuenta no encontrada\n");
+                    ssize_t nbytes = read(usuarios[i].fifo_lectura_fd, buffer, sizeof(buffer) - 1);
+                    
+                    if (nbytes > 0) {
+                        buffer[nbytes] = '\0';
+                        char respuesta[512];
+                        char operacion[20] = {0};
+                        double monto = 0;
+                        int cuenta = 0;
+                        int cuenta_destino = 0;
+                
+                        int campos = sscanf(buffer, "%19[^|]|%d|%lf|%d", operacion, &cuenta, &monto, &cuenta_destino);
+                
+                        if (campos < 2 || cuenta != usuarios[i].cuenta) {
+                            sprintf(respuesta, "ERROR|Datos inválidos\n");
+                            write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta));
+                            continue;
                         }
-                    }
-                    else if (strcmp(operacion, "DEPOSITO") == 0 && campos >= 3) {
-                        if (monto <= 0) {
-                            sprintf(respuesta, "ERROR|Monto inválido\n");
-                        } else if (procesar_operacion(cuenta, operacion, monto, log_file, sem)) {
-                            double nuevo_saldo = obtener_saldo(cuenta);
-                            sprintf(respuesta, "OK|Depósito realizado|%.2f\n", nuevo_saldo);
-                        } else {
-                            sprintf(respuesta, "ERROR|Fallo en depósito\n");
-                        }
-                    }
-                    else if (strcmp(operacion, "RETIRO") == 0 && campos >= 3) {
-                        if (monto <= 0) {
-                            sprintf(respuesta, "ERROR|Monto inválido\n");
-                        } else if (procesar_operacion(cuenta, operacion, monto, log_file, sem)) {
-                            double nuevo_saldo = obtener_saldo(cuenta);
-                            sprintf(respuesta, "OK|Retiro realizado|%.2f\n", nuevo_saldo);
-                        } else {
-                            sprintf(respuesta, "ERROR|Fondos insuficientes\n");
-                        }
-                    }
-                    else if (strcmp(operacion, "TRANSFER") == 0 && campos >= 4) {
-                        if (monto <= 0) {
-                            sprintf(respuesta, "ERROR|Monto inválido\n");
-                        } else {
-                            // Retiro de cuenta origen
-                            int retiro_ok = procesar_operacion(cuenta, "RETIRO", monto, log_file, sem);
-                            // Depósito en cuenta destino
-                            int deposito_ok = procesar_operacion(cuenta_destino, "DEPOSITO", monto, log_file, sem);
+                
+                        if (strcmp(operacion, "CONSULTA") == 0) {
+                            sem_wait(sem);
+                            double saldo = obtener_saldo(cuenta);
+                            sem_post(sem);
                             
-                            if (retiro_ok && deposito_ok) {
-                                double nuevo_saldo = obtener_saldo(cuenta);
-                                sprintf(respuesta, "OK|Transferencia realizada|%.2f\n", nuevo_saldo);
+                            if (saldo >= 0) {
+                                sprintf(respuesta, "SALDO|%.2f\n", saldo);
                             } else {
-                                sprintf(respuesta, "ERROR|Fallo en transferencia\n");
+                                sprintf(respuesta, "ERROR|Cuenta no encontrada\n");
                             }
                         }
-                    }
-                    else {
-                        sprintf(respuesta, "ERROR|Operación no soportada\n");
-                    }
-            
-                    // Enviar respuesta
-                    write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta));
-                }
-            }
-                        
-                        // Enviar respuesta apropiada al usuario
-                        if (usuarios[i].fifo_escritura_fd > 0) {
-                            if (write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta)) < 0) {
-                                if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                                    perror("Error al escribir respuesta al usuario");
+                        else if (strcmp(operacion, "DEPOSITO") == 0 && campos >= 3) {
+                            if (monto <= 0) {
+                                sprintf(respuesta, "ERROR|Monto inválido\n");
+                            } else if (procesar_operacion(cuenta, operacion, monto, log_file, sem)) {
+                                double nuevo_saldo = obtener_saldo(cuenta);
+                                sprintf(respuesta, "OK|Depósito realizado|%.2f\n", nuevo_saldo);
+                            } else {
+                                sprintf(respuesta, "ERROR|Fallo en depósito\n");
+                            }
+                        }
+                        else if (strcmp(operacion, "RETIRO") == 0 && campos >= 3) {
+                            if (monto <= 0) {
+                                sprintf(respuesta, "ERROR|Monto inválido\n");
+                            } else if (procesar_operacion(cuenta, operacion, monto, log_file, sem)) {
+                                double nuevo_saldo = obtener_saldo(cuenta);
+                                sprintf(respuesta, "OK|Retiro realizado|%.2f\n", nuevo_saldo);
+                            } else {
+                                sprintf(respuesta, "ERROR|Fondos insuficientes\n");
+                            }
+                        }
+                        else if (strcmp(operacion, "TRANSFER") == 0 && campos >= 4) {
+                            if (monto <= 0) {
+                                sprintf(respuesta, "ERROR|Monto inválido\n");
+                            } else {
+                                int retiro_ok = procesar_operacion(cuenta, "RETIRO", monto, log_file, sem);
+                                int deposito_ok = procesar_operacion(cuenta_destino, "DEPOSITO", monto, log_file, sem);
+                                
+                                if (retiro_ok && deposito_ok) {
+                                    double nuevo_saldo = obtener_saldo(cuenta);
+                                    sprintf(respuesta, "OK|Transferencia realizada|%.2f\n", nuevo_saldo);
+                                } else {
+                                    sprintf(respuesta, "ERROR|Fallo en transferencia\n");
                                 }
                             }
                         }
+                        else {
+                            sprintf(respuesta, "ERROR|Operación no soportada\n");
+                        }
+                
+                        if (write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta)) < 0) {
+                            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                                perror("Error al escribir respuesta al usuario");
+                            }
+                        }
                     }
-                    else if (nbytes == 0) { // EOF - el FIFO se cerró - CORRECCIÓN: Mover dentro del bloque correcto
+                    else if (nbytes == 0) {
                         printf("Detectado EOF en FIFO de lectura del usuario %d (PID %d). Cerrando conexión.\n", 
                                usuarios[i].cuenta, usuarios[i].pid);
                         close(usuarios[i].fifo_lectura_fd);
                         usuarios[i].fifo_lectura_fd = 0;
                     }
-                    else { // Error en read
+                    else {
                         if (errno != EAGAIN && errno != EWOULDBLOCK) {
                             perror("Error al leer del FIFO del usuario");
                             limpiar_recursos_usuario(i);
                         }
-                        // Si es EAGAIN/EWOULDBLOCK es normal con non-blocking, no hacer nada
                     }
-                } // Fin del if (ready > 0...)
+                }
             }
         }
         
-        // Pequeña pausa para no saturar la CPU
-        usleep(100000); // 100ms
+        usleep(100000);
     }
 
     // Esperar a que todos los procesos hijos terminen
