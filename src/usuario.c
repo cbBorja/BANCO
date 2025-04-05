@@ -15,10 +15,10 @@
 
 // Definición de la estructura Operacion.
 typedef struct {
-    int tipo_operacion; // 1: Depósito, 2: Retiro, 3: Transferencia, 4: Consultar saldo
+    int tipo_operacion; // 1:Depósito, 2:Retiro, 3:Transferencia, 4:Consulta
     double monto;
     int cuenta;
-    // Descriptor de archivo para escribir al banco
+    int cuenta_destino; // Nuevo campo para transferencias
     int fifo_fd;
 } Operacion;
 
@@ -69,26 +69,22 @@ void *ejecutar_operacion(void *arg) {
     pthread_mutex_lock(&stdout_mutex);
     
     // Crear mensaje basado en el tipo de operación
-    switch (args->op.tipo_operacion) {
-        case 1:
-            sprintf(mensaje, "[%s] Depósito de %.2f en la cuenta %d completado.\n", 
-                   timestamp, args->op.monto, args->op.cuenta);
+   void *ejecutar_operacion(void *arg) {
+    OperacionArgs *args = (OperacionArgs *)arg;
+    char mensaje[BUFFER_SIZE];
+    
+    switch(args->op.tipo_operacion) {
+        case 1: // Depósito
+            sprintf(mensaje, "DEPOSITO|%d|%.2f", args->op.cuenta, args->op.monto);
             break;
-        case 2:
-            sprintf(mensaje, "[%s] Retiro de %.2f de la cuenta %d completado.\n", 
-                   timestamp, args->op.monto, args->op.cuenta);
+        case 2: // Retiro
+            sprintf(mensaje, "RETIRO|%d|%.2f", args->op.cuenta, args->op.monto);
             break;
-        case 3:
-            sprintf(mensaje, "[%s] Transferencia de %.2f desde la cuenta %d completada.\n", 
-                   timestamp, args->op.monto, args->op.cuenta);
+        case 3: // Transferencia
+            sprintf(mensaje, "TRANSFER|%d|%.2f|%d", args->op.cuenta, args->op.monto, args->op.cuenta_destino);
             break;
-        case 4:
-            sprintf(mensaje, "[%s] Consulta de saldo en la cuenta %d completada.\n", 
-                   timestamp, args->op.cuenta);
-            break;
-        default:
-            sprintf(mensaje, "[%s] Operación desconocida en la cuenta %d.\n", 
-                   timestamp, args->op.cuenta);
+        case 4: // Consulta
+            sprintf(mensaje, "CONSULTA|%d", args->op.cuenta);
             break;
     }
     
