@@ -434,6 +434,8 @@ int main() {
                             // Consulta de saldo - leer el archivo de cuentas
                             sem_wait(sem);
                             double saldo = -1;
+
+
                             
                             // Log para depuración: verificar la ruta del archivo
                             printf("Intentando abrir archivo: %s\n", config.archivo_cuentas);
@@ -454,6 +456,7 @@ int main() {
                                     }
                                 }
                                 fclose(cuentas_file);
+                                sem_post(sem);
                                 
                                 if (saldo >= 0) {
                                     sprintf(respuesta, "Banco: Saldo actual de la cuenta %d: $%.2f\n", 
@@ -465,11 +468,11 @@ int main() {
                                     printf("DEBUG: No se encontró la cuenta en el archivo\n");
                                 }
                             } else {
+                                sem_post(sem);
                                 sprintf(respuesta, "Banco: Error al acceder al archivo de cuentas.\n");
                                 perror("Error al abrir archivo de cuentas");
                             }
-                            sem_post(sem);
-                        } else {
+                            } else {
                             // Mensaje genérico para otros casos
                             sprintf(respuesta, "Banco: Mensaje recibido. Procesando...\n");
                         }
