@@ -59,11 +59,7 @@ double obtener_saldo(int cuenta) {
     char linea[256];
     double saldo = -1;
     
-<<<<<<< HEAD
-    while (fgets(linea, sizeof(linea), archivo) ){
-=======
     while (fgets(linea, sizeof(linea), archivo)) {
->>>>>>> 7dc1dad829a1294c95646717788a782714f7e153
         int current_cuenta;
         char titular[50];
         double current_saldo;
