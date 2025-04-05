@@ -12,13 +12,16 @@
 #include <sys/time.h>
 #include <errno.h>
 
-#define CONFIG_FILE "../config/config.txt"
-#define LOG_FILE "../data/transacciones.log"
+//#define CONFIG_FILE "../config/config.txt"
+#define CONFIG_FILE "config/config.txt" 
+/*esta ruta funciona desde bin, pero no desde /BANCO */
+//#define LOG_FILE "../data/transacciones.log"
+#define LOG_FILE "data/transacciones.log"
 #define MAX_USUARIOS_SIMULTANEOS 10
 #define FIFO_BASE_PATH "/tmp/banco_fifo_"
 
 typedef struct {
-    int limite_retiro;
+    double limite_retiro;
     int limite_transferencia;
     int umbral_retiros;
     int umbral_transferencias;
@@ -133,6 +136,7 @@ int main() {
 
     // Leer el fichero de configuración.
     leer_configuracion(CONFIG_FILE, &config);
+    
 
     // Configuración de manejadores de señales para terminación adecuada
     signal(SIGINT, manejador_senales);
@@ -256,7 +260,7 @@ int main() {
                     "xterm",
                     "-T", titulo_ventana,
                     "-e", 
-                    "./usuario", 
+                    "bin/usuario", //modificado
                     cuenta_str, 
                     fifo_from_usuario, 
                     fifo_to_usuario,
@@ -413,12 +417,106 @@ int main() {
                             // Respuesta para depósito
                             sscanf(buffer, "[%*[^]]] Depósito de %lf en la cuenta %d", &monto, &cuenta_msg);
                             printf("DEBUG: Extrayendo Depósito - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
+                            
+
+                            // Añadir saldo al archivo de cuentas 
+                            sem_wait(sem);
+                            printf("Intentando abrir archivo: %s\n", config.archivo_cuentas);
+                            printf("DEBUG: Ruta del archivo de cuentas: %s\n", config.archivo_cuentas);
+                            FILE *cuentas_file = fopen(config.archivo_cuentas, "r+");
+                            if(cuentas_file == NULL){
+                                perror("Error al abrir el archivo de cuentas");
+                                sem_post(sem);
+                                // TODO: decidir como quieres fallar esta comprobación
+                            }
+                            int cuenta_a_modificar = cuenta_msg; // Número de cuenta extraído del mensaje
+                            double monto_a_sumar = monto;       // Monto extraído del mensaje
+                            int cuenta_actual;
+                            char titular[50];
+                            double saldo_actual;
+                            int transacciones;
+                            long posicion;
+
+                            // Buscar la cuenta en el archivo
+                            while ((posicion = ftell(cuentas_file)) >= 0 && 
+                                fscanf(cuentas_file, "%d|%49[^|]|%lf|%d\n", &cuenta_actual, titular, &saldo_actual, &transacciones) == 4) {
+                                if (cuenta_actual == cuenta_a_modificar) {
+                                    // Mover el puntero del archivo a la posición de la línea encontrada
+                                    fseek(cuentas_file, posicion, SEEK_SET);
+
+                                    // Sumar el monto al saldo actual
+                                    saldo_actual += monto_a_sumar;
+                                    transacciones++; // Incrementar el número de transacciones
+
+                                    // Sobrescribir la línea con los nuevos datos
+                                    fprintf(cuentas_file, "%d|%s|%.2f|%d\n", cuenta_actual, titular, saldo_actual, transacciones);
+                                    printf("Cuenta %d actualizada con nuevo saldo: %.2f\n", cuenta_actual, saldo_actual);
+                                    break;
+                                }
+                            }
+
+                            fclose(cuentas_file); // Cerrar el archivo
+                            sem_post(sem);
+
+                            
+                            //------- Implementado la suma ------
                             sprintf(respuesta, "Banco: Depósito de %.2f recibido y procesado.\n", monto);
                         } 
+                        
                         else if (strstr(buffer, "Retiro") != NULL) {
                             // Respuesta para retiro
                             sscanf(buffer, "[%*[^]]] Retiro de %lf de la cuenta %d", &monto, &cuenta_msg);
                             printf("DEBUG: Extrayendo Retiro - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
+                            sem_wait(sem);
+                            printf("Intentando abrir archivo: %s\n", config.archivo_cuentas);
+                            printf("DEBUG: Ruta del archivo de cuentas: %s\n", config.archivo_cuentas);
+                            FILE *cuentas_file = fopen(config.archivo_cuentas, "r+");
+
+                            if(cuentas_file == NULL){
+                                perror("Error al abrir el archivo de cuentas");
+
+                                // Liberar recursos antes de salir
+                                sem_close(sem);
+                                sem_unlink("/cuentas_semaphore");
+                                fclose(log_file);
+                            
+                                // Salir con un código de error
+                                exit(EXIT_FAILURE);
+                            }
+                            if (monto > config.limite_retiro) {
+                                sprintf(respuesta, "Banco: Retiro de %.2f excede el límite permitido de %.2f.\n", 
+                                        monto, config.limite_retiro);
+                                fclose(cuentas_file);
+                                sem_post(sem);
+                                continue; 
+                            }
+                            int cuenta_a_modificar = cuenta_msg; // Número de cuenta extraído del mensaje
+                            double monto_a_restar = monto;       // Monto extraído del mensaje
+                            int cuenta_actual;
+                            char titular[50];
+                            double saldo_actual;
+                            int transacciones;
+                            long posicion;
+                            // Buscar la cuenta en el archivo
+                            while ((posicion = ftell(cuentas_file)) >= 0 && 
+                                fscanf(cuentas_file, "%d|%49[^|]|%lf|%d\n", &cuenta_actual, titular, &saldo_actual, &transacciones) == 4) {
+                                if (cuenta_actual == cuenta_a_modificar) {
+                                    // Mover el puntero del archivo a la posición de la línea encontrada
+                                    fseek(cuentas_file, posicion, SEEK_SET);
+
+                                    // Sumar el monto al saldo actual
+                                    saldo_actual -= monto_a_restar;
+                                    transacciones++; // Incrementar el número de transacciones
+
+                                    // Sobrescribir la línea con los nuevos datos
+                                    fprintf(cuentas_file, "%d|%s|%.2f|%d\n", cuenta_actual, titular, saldo_actual, transacciones);
+                                    printf("Cuenta %d actualizada con nuevo saldo: %.2f\n", cuenta_actual, saldo_actual);
+                                    break;
+                                }
+                            }
+
+                            fclose(cuentas_file); // Cerrar el archivo
+                            sem_post(sem);
                             sprintf(respuesta, "Banco: Retiro de %.2f procesado.\n", monto);
                         }
                         else if (strstr(buffer, "Transferencia") != NULL) {
@@ -436,7 +534,10 @@ int main() {
                             
                             // Log para depuración: verificar la ruta del archivo
                             printf("Intentando abrir archivo: %s\n", config.archivo_cuentas);
+                            printf("DEBUG: Ruta del archivo de cuentas: %s\n", config.archivo_cuentas);
                             FILE *cuentas_file = fopen(config.archivo_cuentas, "r");
+                            
+
                             if (cuentas_file) {
                                 int current_cuenta;
                                 char titular[50];
@@ -447,6 +548,8 @@ int main() {
                                 // Leer el archivo usando '|' como delimitador
                                 while (fscanf(cuentas_file, "%d|%49[^|]|%lf|%d", 
                                               &current_cuenta, titular, &current_saldo, &transacciones) == 4) {
+                                    printf("Leyendo: Cuenta=%d, Titular=%s, Saldo=%.2f, Transacciones=%d\n", 
+                                           current_cuenta, titular, current_saldo, transacciones);
                                     if (current_cuenta == usuarios[i].cuenta) {
                                         saldo = current_saldo;
                                         break;

@@ -92,3 +92,36 @@ Usuario conectado: Cuenta 1001 (PID: 8684)
 Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
 Usuario (Cuenta 1001): [2025-04-03 21:28:24] Consulta de saldo en la cuenta 1001 completada.
 Usuario desconectado: PID 8684
+Usuario conectado: Cuenta 1001 (PID: 26177)
+Usuario desconectado: PID 26177
+Usuario conectado: Cuenta 1001 (PID: 26207)
+Usuario desconectado: PID 26207
+Usuario conectado: Cuenta 1001 (PID: 26600)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 20:48:12] Consulta de saldo en la cuenta 1001 completada.
+Usuario desconectado: PID 26600
+Usuario conectado: Cuenta 1001 (PID: 27709)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 20:49:57] Consulta de saldo en la cuenta 1001 completada.
+Usuario conectado: Cuenta 1001 (PID: 28038)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 20:50:46] Consulta de saldo en la cuenta 1001 completada.
+Usuario desconectado: PID 28038
+Usuario conectado: Cuenta 1001 (PID: 29290)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 21:09:29] Consulta de saldo en la cuenta 1001 completada.
+Usuario desconectado: PID 29290
+Usuario conectado: Cuenta 1001 (PID: 30637)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 21:14:23] Consulta de saldo en la cuenta 1001 completada.
+Usuario desconectado: PID 30637
+Usuario conectado: Cuenta 1001 (PID: 30862)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 21:19:10] Depósito de 100.00 en la cuenta 1001 completado.
+Usuario conectado: Cuenta 1001 (PID: 46636)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 21:38:06] Depósito de 100.00 en la cuenta 1001 completado.
+Usuario desconectado: PID 46636
+Usuario conectado: Cuenta 1001 (PID: 55798)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-05 23:25:25] Transferencia de 100.00 desde la cuenta 1001 completada.
