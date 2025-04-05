@@ -48,13 +48,58 @@ void manejador_senales(int sig) {
     continuar_ejecucion = 0;
 }
 
-// Añade estas funciones (justo antes de main())
+
+// Función para obtener saldo de una cuenta
 double obtener_saldo(int cuenta) {
     FILE *archivo = fopen(config.archivo_cuentas, "r");
-    if (!archivo) return -1;
+    if (!archivo) {
+        perror("Error al abrir archivo de cuentas");
+        return -1;
+    }
 
     char linea[256];
-    while (fgets(linea, sizeof(linea), archivo)) {
+    double saldo = -1;
+    
+    while (fgets(linea, sizeof(linea), archivo) {
+        int current_cuenta;
+        char titular[50];
+        double current_saldo;
+        int transacciones;
+        
+        if (sscanf(linea, "%d|%49[^|]|%lf|%d", &current_cuenta, titular, &current_saldo, &transacciones) == 4) {
+            if (current_cuenta == cuenta) {
+                saldo = current_saldo;
+                break;
+            }
+        }
+    }
+    
+    fclose(archivo);
+    return saldo;
+}
+
+// Función para procesar operaciones
+int procesar_operacion(int cuenta, const char *operacion, double monto, FILE *log_file, sem_t *sem) {
+    char temp_file[] = "temp_cuentas.txt";
+    char linea[256];
+    int operacion_exitosa = 0;
+
+    sem_wait(sem);
+    
+    FILE *archivo = fopen(config.archivo_cuentas, "r");
+    if (!archivo) {
+        sem_post(sem);
+        return 0;
+    }
+
+    FILE *temp = fopen(temp_file, "w");
+    if (!temp) {
+        fclose(archivo);
+        sem_post(sem);
+        return 0;
+    }
+
+    while (fgets(linea, sizeof(linea), archivo) {
         int current_cuenta;
         char titular[50];
         double saldo;
@@ -62,57 +107,20 @@ double obtener_saldo(int cuenta) {
         
         if (sscanf(linea, "%d|%49[^|]|%lf|%d", &current_cuenta, titular, &saldo, &transacciones) == 4) {
             if (current_cuenta == cuenta) {
-                fclose(archivo);
-                return saldo;
-            }
-        }
-    }
-    fclose(archivo);
-    return -1;
-}
-
-void procesar_operacion(int cuenta_usuario, const char *operacion, double monto, FILE *log_file, sem_t *sem) {
-    char temp_file[] = "temp_cuentas.txt";
-    char linea[256];
-    int operacion_realizada = 0;
-    double nuevo_saldo = 0;
-
-    sem_wait(sem);
-
-    FILE *archivo = fopen(config.archivo_cuentas, "r");
-    FILE *temp = fopen(temp_file, "w");
-
-    if (!archivo || !temp) {
-        perror("Error al abrir archivos");
-        sem_post(sem);
-        return;
-    }
-
-    while (fgets(linea, sizeof(linea), archivo)) {
-        int cuenta;
-        char titular[50];
-        double saldo;
-        int transacciones;
-        
-        sscanf(linea, "%d|%49[^|]|%lf|%d", &cuenta, titular, &saldo, &transacciones);
-
-        if (cuenta == cuenta_usuario) {
-            if (strcmp(operacion, "DEPOSITO") == 0) {
-                saldo += monto;
-                operacion_realizada = 1;
-                fprintf(log_file, "Depósito de %.2f en cuenta %d\n", monto, cuenta_usuario);
-            } 
-            else if (strcmp(operacion, "RETIRO") == 0) {
-                if (saldo >= monto) {
-                    saldo -= monto;
-                    operacion_realizada = 1;
-                    fprintf(log_file, "Retiro de %.2f de cuenta %d\n", monto, cuenta_usuario);
+                if (strcmp(operacion, "DEPOSITO") == 0) {
+                    saldo += monto;
+                    operacion_exitosa = 1;
+                } 
+                else if (strcmp(operacion, "RETIRO") == 0) {
+                    if (saldo >= monto) {
+                        saldo -= monto;
+                        operacion_exitosa = 1;
+                    }
                 }
+                transacciones++;
             }
-            transacciones++;
-            nuevo_saldo = saldo;
+            fprintf(temp, "%d|%s|%.2f|%d\n", current_cuenta, titular, saldo, transacciones);
         }
-        fprintf(temp, "%d|%s|%.2f|%d\n", cuenta, titular, saldo, transacciones);
     }
 
     fclose(archivo);
@@ -122,10 +130,7 @@ void procesar_operacion(int cuenta_usuario, const char *operacion, double monto,
     rename(temp_file, config.archivo_cuentas);
     sem_post(sem);
 
-    if (!operacion_realizada) {
-        fprintf(log_file, "Operación fallida en cuenta %d\n", cuenta_usuario);
-    }
-    fflush(log_file);
+    return operacion_exitosa;
 }
 
 
@@ -472,47 +477,84 @@ int main() {
                 int ready = select(usuarios[i].fifo_lectura_fd + 1, &set, NULL, NULL, &timeout);
                 
                 if (ready > 0 && FD_ISSET(usuarios[i].fifo_lectura_fd, &set)) {
-                    ssize_t nbytes = read(usuarios[i].fifo_lectura_fd, buffer, sizeof(buffer) - 1);
-                    
-                    if (nbytes > 0) {
-                        buffer[nbytes] = '\0';
-                        fprintf(log_file, "Usuario (Cuenta %d): %s", usuarios[i].cuenta, buffer);
-                        fflush(log_file);
-                        printf("Mensaje de usuario %d (Cuenta %d): %s", 
-                               i, usuarios[i].cuenta, buffer);
+    char buffer[256];
+    ssize_t nbytes = read(usuarios[i].fifo_lectura_fd, buffer, sizeof(buffer) - 1);
+    
+                if (nbytes > 0) {
+                    buffer[nbytes] = '\0';
+                    char respuesta[512];
+                    char operacion[20] = {0};
+                    double monto = 0;
+                    int cuenta = 0;
+                    int cuenta_destino = 0;
+            
+                    // Parseo mejorado
+                    int campos = sscanf(buffer, "%19[^|]|%d|%lf|%d", operacion, &cuenta, &monto, &cuenta_destino);
+            
+                    // Validación básica
+                    if (campos < 2 || cuenta != usuarios[i].cuenta) {
+                        sprintf(respuesta, "ERROR|Datos inválidos\n");
+                        write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta));
+                        continue;
+                    }
+            
+                    // Procesar operación
+                    if (strcmp(operacion, "CONSULTA") == 0) {
+                        sem_wait(sem);
+                        double saldo = obtener_saldo(cuenta);
+                        sem_post(sem);
                         
-                        // Log adicional para depuración
-                        printf("DEBUG: Mensaje recibido (bytes=%zd): %s", nbytes, buffer);
-                        
-                        // Declarar respuesta y monto aquí para tenerlos disponibles en todo el bloque
-                        char respuesta[512];
-                        double monto = 0.0;
-                        int cuenta_msg = 0; // Para almacenar cuenta extraída del mensaje
-                        
-                        // Determinar tipo de operación basado en el mensaje
-                        // Parsear mensaje estructurado
-                        if (sscanf(buffer, "%[^|]|%d|%lf", operacion, &cuenta, &monto) >= 2) {
-                            printf("Operación recibida: %s para cuenta %d\n", operacion, cuenta);
-                            
-                            if (strcmp(operacion, "CONSULTA") == 0) {
-                                sem_wait(sem);
-                                double saldo = obtener_saldo(cuenta);
-                                sem_post(sem);
-                                
-                                if (saldo >= 0) {
-                                    sprintf(respuesta, "Saldo actual: %.2f\n", saldo);
-                                } else {
-                                    sprintf(respuesta, "Cuenta no encontrada\n");
-                                }
-                            } 
-                            else {
-                                procesar_operacion(cuenta, operacion, monto, log_file, sem);
-                                double saldo_actual = obtener_saldo(cuenta);
-                                sprintf(respuesta, "Operación exitosa. Nuevo saldo: %.2f\n", saldo_actual);
-                            }
+                        if (saldo >= 0) {
+                            sprintf(respuesta, "SALDO|%.2f\n", saldo);
                         } else {
-                            sprintf(respuesta, "Error: Formato de mensaje inválido\n");
+                            sprintf(respuesta, "ERROR|Cuenta no encontrada\n");
                         }
+                    }
+                    else if (strcmp(operacion, "DEPOSITO") == 0 && campos >= 3) {
+                        if (monto <= 0) {
+                            sprintf(respuesta, "ERROR|Monto inválido\n");
+                        } else if (procesar_operacion(cuenta, operacion, monto, log_file, sem)) {
+                            double nuevo_saldo = obtener_saldo(cuenta);
+                            sprintf(respuesta, "OK|Depósito realizado|%.2f\n", nuevo_saldo);
+                        } else {
+                            sprintf(respuesta, "ERROR|Fallo en depósito\n");
+                        }
+                    }
+                    else if (strcmp(operacion, "RETIRO") == 0 && campos >= 3) {
+                        if (monto <= 0) {
+                            sprintf(respuesta, "ERROR|Monto inválido\n");
+                        } else if (procesar_operacion(cuenta, operacion, monto, log_file, sem)) {
+                            double nuevo_saldo = obtener_saldo(cuenta);
+                            sprintf(respuesta, "OK|Retiro realizado|%.2f\n", nuevo_saldo);
+                        } else {
+                            sprintf(respuesta, "ERROR|Fondos insuficientes\n");
+                        }
+                    }
+                    else if (strcmp(operacion, "TRANSFER") == 0 && campos >= 4) {
+                        if (monto <= 0) {
+                            sprintf(respuesta, "ERROR|Monto inválido\n");
+                        } else {
+                            // Retiro de cuenta origen
+                            int retiro_ok = procesar_operacion(cuenta, "RETIRO", monto, log_file, sem);
+                            // Depósito en cuenta destino
+                            int deposito_ok = procesar_operacion(cuenta_destino, "DEPOSITO", monto, log_file, sem);
+                            
+                            if (retiro_ok && deposito_ok) {
+                                double nuevo_saldo = obtener_saldo(cuenta);
+                                sprintf(respuesta, "OK|Transferencia realizada|%.2f\n", nuevo_saldo);
+                            } else {
+                                sprintf(respuesta, "ERROR|Fallo en transferencia\n");
+                            }
+                        }
+                    }
+                    else {
+                        sprintf(respuesta, "ERROR|Operación no soportada\n");
+                    }
+            
+                    // Enviar respuesta
+                    write(usuarios[i].fifo_escritura_fd, respuesta, strlen(respuesta));
+                }
+            }
                         
                         // Enviar respuesta apropiada al usuario
                         if (usuarios[i].fifo_escritura_fd > 0) {
