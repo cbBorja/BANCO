@@ -15,10 +15,10 @@
 
 // Definición de la estructura Operacion.
 typedef struct {
-    int tipo_operacion; // 1:Depósito, 2:Retiro, 3:Transferencia, 4:Consulta
+    int tipo_operacion; // 1: Depósito, 2: Retiro, 3: Transferencia, 4: Consultar saldo
     double monto;
     int cuenta;
-    int cuenta_destino; // Nuevo campo para transferencias
+    // Descriptor de archivo para escribir al banco
     int fifo_fd;
 } Operacion;
 
@@ -63,52 +63,51 @@ void *ejecutar_operacion(void *arg) {
     OperacionArgs *args = (OperacionArgs *)arg;
     char mensaje[BUFFER_SIZE];
     char timestamp[30];
-    get_timestamp(timestamp, sizeof(timestamp));
+    get_timestamp(timestamp, sizeof(timestamp)); // Mantenemos el timestamp
     
-    // Bloquear el mutex para asegurar que el mensaje completo se escriba de una vez
-    pthread_mutex_lock(&stdout_mutex);
-    
-    // Crear mensaje basado en el tipo de operación
-   void *ejecutar_operacion(void *arg) {
-    OperacionArgs *args = (OperacionArgs *)arg;
-    char mensaje[BUFFER_SIZE];
-    
+    pthread_mutex_lock(&stdout_mutex); // Bloqueamos para salida segura
+
     switch(args->op.tipo_operacion) {
         case 1: // Depósito
             sprintf(mensaje, "DEPOSITO|%d|%.2f", args->op.cuenta, args->op.monto);
+            printf("[%s] Depósito de %.2f en la cuenta %d solicitado.\n", 
+                  timestamp, args->op.monto, args->op.cuenta);
             break;
+            
         case 2: // Retiro
             sprintf(mensaje, "RETIRO|%d|%.2f", args->op.cuenta, args->op.monto);
+            printf("[%s] Retiro de %.2f de la cuenta %d solicitado.\n", 
+                  timestamp, args->op.monto, args->op.cuenta);
             break;
+            
         case 3: // Transferencia
-            sprintf(mensaje, "TRANSFER|%d|%.2f|%d", args->op.cuenta, args->op.monto, args->op.cuenta_destino);
+            sprintf(mensaje, "TRANSFER|%d|%.2f|%d", 
+                  args->op.cuenta, args->op.monto, args->op.cuenta_destino);
+            printf("[%s] Transferencia de %.2f desde %d a %d solicitada.\n", 
+                  timestamp, args->op.monto, args->op.cuenta, args->op.cuenta_destino);
             break;
+            
         case 4: // Consulta
             sprintf(mensaje, "CONSULTA|%d", args->op.cuenta);
+            printf("[%s] Consulta de saldo en cuenta %d solicitada.\n", 
+                  timestamp, args->op.cuenta);
+            break;
+            
+        default:
+            sprintf(mensaje, "ERROR|Operación desconocida");
+            printf("[%s] Operación desconocida en cuenta %d.\n", 
+                  timestamp, args->op.cuenta);
             break;
     }
-    
-    // Mostrar en pantalla para el usuario
-    printf("%s", mensaje);
-    
-    // Enviar mensaje al banco a través del FIFO
+
+    pthread_mutex_unlock(&stdout_mutex); // Desbloqueamos
+
+    // Envío al banco (se mantiene igual)
     if (fifo_escritura_fd >= 0) {
-        // Si el FIFO se cerró, intentamos reabrirlo
-        if (fifo_escritura_fd == -1) {
-            fifo_escritura_fd = open(fifo_escritura, O_WRONLY);
-        }
-        
-        if (fifo_escritura_fd >= 0) {
-            if (write(fifo_escritura_fd, mensaje, strlen(mensaje)) < 0) {
-                perror("Error al escribir en FIFO");
-            }
-        } else {
-            perror("No se pudo abrir el FIFO para escritura");
+        if (write(fifo_escritura_fd, mensaje, strlen(mensaje)) < 0) {
+            perror("Error al escribir en FIFO");
         }
     }
-    
-    // Desbloquear el mutex
-    pthread_mutex_unlock(&stdout_mutex);
 
     free(args);
     pthread_exit(NULL);
