@@ -49,6 +49,7 @@ void manejador_senales(int sig) {
 }
 
 
+
 /* Función para leer la configuración desde el archivo.
    Se espera que cada línea siga el formato clave=valor sin espacios extra. */
 void leer_configuracion(const char *filename, Config *cfg) {
