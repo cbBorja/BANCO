@@ -170,6 +170,7 @@ void menu_usuario(int cuenta) {
         // Si se selecciona 'Salir', se termina el proceso.
         if (opcion == 5) {
             printf("Sesión finalizada para la cuenta %d.\n", cuenta);
+            sleep(1);
             break;
         }
         
