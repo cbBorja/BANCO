@@ -125,3 +125,31 @@ Usuario desconectado: PID 46636
 Usuario conectado: Cuenta 1001 (PID: 55798)
 Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
 Usuario (Cuenta 1001): [2025-04-05 23:25:25] Transferencia de 100.00 desde la cuenta 1001 completada.
+Usuario conectado: Cuenta 1001 (PID: 59818)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario desconectado: PID 59818
+Usuario conectado: Cuenta 1001 (PID: 22314)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 22:46:35] Transferencia de 100.00 desde la cuenta 1001 completada.
+Usuario desconectado: PID 22314
+Usuario conectado: Cuenta 1001 (PID: 28721)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 23:07:58] Transferencia de 100.00 desde la cuenta 1001  a la cuenta 1002 completada.
+Usuario conectado: Cuenta 1001 (PID: 29916)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 23:11:18] Transferencia de 100.00 desde la cuenta 1001  a la cuenta 1002 completada.
+Usuario desconectado: PID 29916
+Usuario conectado: Cuenta 1001 (PID: 29962)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 23:12:17] Transferencia de 1000.00 desde la cuenta 1001  a la cuenta 1002 completada.
+Usuario desconectado: PID 29962
+Usuario conectado: Cuenta 1001 (PID: 30256)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 23:14:29] Transferencia de 1000.00 desde la cuenta 1001  a la cuenta 1002 completada.
+Usuario conectado: Cuenta 1001 (PID: 30358)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 23:17:43] Depósito de 100.00 en la cuenta 1001 completado.
+Usuario conectado: Cuenta 1001 (PID: 33869)
+Usuario (Cuenta 1001): Usuario con cuenta 1001 ha iniciado sesión.
+Usuario (Cuenta 1001): [2025-04-06 23:21:33] Transferencia de 1000.00 desde la cuenta 1001  a la cuenta 1002 completada.
+Usuario desconectado: PID 33869

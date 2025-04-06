@@ -11,13 +11,14 @@
 #include <errno.h>
 
 #define BUFFER_SIZE 256
-#define LOG_FILE "../data/transacciones.log"
+#define LOG_FILE "data/transacciones.log"
 
 // Definición de la estructura Operacion.
 typedef struct {
     int tipo_operacion; // 1: Depósito, 2: Retiro, 3: Transferencia, 4: Consultar saldo
     double monto;
-    int cuenta;
+    int cuenta_origen;
+    int cuenta_destino; // Solo para transferencias
     // Descriptor de archivo para escribir al banco
     int fifo_fd;
 } Operacion;
@@ -72,23 +73,23 @@ void *ejecutar_operacion(void *arg) {
     switch (args->op.tipo_operacion) {
         case 1:
             sprintf(mensaje, "[%s] Depósito de %.2f en la cuenta %d completado.\n", 
-                   timestamp, args->op.monto, args->op.cuenta);
+                   timestamp, args->op.monto, args->op.cuenta_origen);
             break;
         case 2:
             sprintf(mensaje, "[%s] Retiro de %.2f de la cuenta %d completado.\n", 
-                   timestamp, args->op.monto, args->op.cuenta);
+                   timestamp, args->op.monto, args->op.cuenta_origen);
             break;
         case 3:
-            sprintf(mensaje, "[%s] Transferencia de %.2f desde la cuenta %d completada.\n", 
-                   timestamp, args->op.monto, args->op.cuenta);
+            sprintf(mensaje, "[%s] Transferencia de %.2f desde la cuenta %d  a la cuenta %d completada.\n", 
+                   timestamp, args->op.monto, args->op.cuenta_origen, args->op.cuenta_destino);
             break;
         case 4:
             sprintf(mensaje, "[%s] Consulta de saldo en la cuenta %d completada.\n", 
-                   timestamp, args->op.cuenta);
+                   timestamp, args->op.cuenta_origen);
             break;
         default:
             sprintf(mensaje, "[%s] Operación desconocida en la cuenta %d.\n", 
-                   timestamp, args->op.cuenta);
+                   timestamp, args->op.cuenta_origen);
             break;
     }
     
@@ -176,7 +177,8 @@ void menu_usuario(int cuenta) {
         Operacion op;
         op.tipo_operacion = opcion;
         op.monto = 0.0;
-        op.cuenta = cuenta;
+        op.cuenta_origen = cuenta;
+        op.cuenta_destino = 0; // Inicializar a 0, se usará solo en transferencias.
         op.fifo_fd = fifo_escritura_fd;
 
         // Para operaciones que requieren monto.
@@ -188,7 +190,16 @@ void menu_usuario(int cuenta) {
                 continue;
             }
             op.monto = monto;
+            if (opcion == 3) {
+                printf("Ingrese la cuenta destino: ");
+                if (scanf("%d", &op.cuenta_destino) != 1) {
+                    fprintf(stderr, "Cuenta destino inválida. Intente de nuevo.\n");
+                    while (getchar() != '\n');
+                    continue;
+                }
+            }
         }
+
         
         // Preparar los argumentos para el hilo.
         OperacionArgs *args = malloc(sizeof(OperacionArgs));

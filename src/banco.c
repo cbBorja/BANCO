@@ -411,6 +411,8 @@ int main() {
                         char respuesta[512];
                         double monto = 0.0;
                         int cuenta_msg = 0; // Para almacenar cuenta extraída del mensaje
+                        int cuenta_dst = 0; // Para almacenar cuenta destino de la transferencia
+                        //tal vez en funcion nueva
                         
                         // Determinar tipo de operación basado en el mensaje
                         if (strstr(buffer, "Depósito") != NULL) {
@@ -504,7 +506,7 @@ int main() {
                                     // Mover el puntero del archivo a la posición de la línea encontrada
                                     fseek(cuentas_file, posicion, SEEK_SET);
 
-                                    // Sumar el monto al saldo actual
+                                    // Restar el monto al saldo actual
                                     saldo_actual -= monto_a_restar;
                                     transacciones++; // Incrementar el número de transacciones
 
@@ -520,10 +522,108 @@ int main() {
                             sprintf(respuesta, "Banco: Retiro de %.2f procesado.\n", monto);
                         }
                         else if (strstr(buffer, "Transferencia") != NULL) {
-                            sscanf(buffer, "[%*[^]]] Transferencia de %lf desde la cuenta %d", &monto, &cuenta_msg);
+                            sscanf(buffer, "[%*[^]]] Transferencia de %lf desde la cuenta %d a la cuenta %d", &monto, &cuenta_msg, &cuenta_dst);
                             printf("DEBUG: Extrayendo Transferencia - monto=%.2f, cuenta=%d\n", monto, cuenta_msg);
+                            sem_wait(sem);
+                            printf("Intentando abrir archivo: %s\n", config.archivo_cuentas);
+                            printf("DEBUG: Ruta del archivo de cuentas: %s\n", config.archivo_cuentas);
+                            FILE *cuentas_file = fopen(config.archivo_cuentas, "r+");
+
+                            if(cuentas_file == NULL){
+                                perror("Error al abrir el archivo de cuentas");
+
+                                // Liberar recursos antes de salir
+                                sem_close(sem);
+                                sem_unlink("/cuentas_semaphore");
+                                fclose(log_file);
+                            
+                                // Salir con un código de error
+                                exit(EXIT_FAILURE);
+                            }   
+                            if (monto > config.limite_transferencia) {
+                                sprintf(respuesta, "Banco: Transferencia de %.2f excede el límite permitido de %d.\n", 
+                                        monto, config.limite_transferencia);
+                                fclose(cuentas_file);
+                                sem_post(sem);
+                                continue; 
+                            }
+                            int cuenta_origen = cuenta_msg; // Número de cuenta origen
+                            int cuenta_destino = cuenta_dst; // Número de cuenta destino
+                            int cuenta_actual = 0; 
+                            char titular[50];
+                            double saldo_actual = 0.0;
+                            int transacciones_actuales = 0;
+                            long posicion = 0;
+
+                            //comprobar existencia cuenta destino
+                            int cuenta_encontrada = 0;
+                            while ((posicion = ftell(cuentas_file)) >= 0 && 
+                                fscanf(cuentas_file, "%d|%49[^|]|%lf|%d\n", &cuenta_actual, titular, &saldo_actual, &transacciones_actuales) == 4) {
+                                if (cuenta_actual == cuenta_destino) {
+                                    cuenta_encontrada = 1;
+                                    break;
+                                } 
+                                
+                            }
+
+                            if (!cuenta_encontrada){
+                                sprintf(respuesta, "Banco: La cuenta destino %d no existe.\n", cuenta_destino);
+                                fclose(cuentas_file);
+                                sem_post(sem);
+                                continue; 
+                            }
+                            // la cuenta destino existe, empezar transferencia
+                            //reinicio el descriptor
+                            rewind(cuentas_file);
+                            posicion = 0;
+                            // Buscar la cuenta origen en el archivo
+                            while((posicion = ftell(cuentas_file)) >= 0 && fscanf(cuentas_file, "%d|%49[^|]|%lf|%d\n", &cuenta_actual, titular, &saldo_actual, &transacciones_actuales) == 4)
+                            {
+                                if (cuenta_actual == cuenta_origen){
+                                    fseek(cuentas_file, posicion, SEEK_SET);
+                                    // Restar el monto al saldo actual
+                                    saldo_actual -= monto;
+                                    transacciones_actuales++; // Incrementar el número de transacciones
+                                    // Sobrescribir la línea con los nuevos datos   
+                                    fprintf(cuentas_file, "%d|%s|%.2f|%d\n", cuenta_actual, titular, saldo_actual, transacciones_actuales);
+                                    printf("Cuenta %d actualizada con nuevo saldo: %.2f\n", cuenta_actual, saldo_actual);
+                                    break;
+
+                                }
+                            }
+                            // Reiniciar el puntero del archivo para la cuenta destino
+                            rewind(cuentas_file);
+                            posicion = 0;
+                            // Buscar la cuenta destino en el archivo
+                            while((posicion = ftell(cuentas_file)) >= 0 && fscanf(cuentas_file, "%d|%49[^|]|%lf|%d\n", &cuenta_actual, titular, &saldo_actual, &transacciones_actuales) == 4)
+                            {
+                                if (cuenta_actual == cuenta_destino){
+                                    fseek(cuentas_file, posicion, SEEK_SET);
+                                    // Restar el monto al saldo actual
+                                    saldo_actual += monto;
+                                    transacciones_actuales++; // Incrementar el número de transacciones
+                                    // Sobrescribir la línea con los nuevos datos   
+                                    fprintf(cuentas_file, "%d|%s|%.2f|%d\n", cuenta_actual, titular, saldo_actual, transacciones_actuales);
+                                    printf("Cuenta %d actualizada con nuevo saldo: %.2f\n", cuenta_actual, saldo_actual);
+                                    break;
+
+                                }
+                            }
+
+
+
                             sprintf(respuesta, "Banco: Transferencia de %.2f procesada.\n", monto);
                         }
+
+
+
+
+
+
+
+
+
+
                         else if (strstr(buffer, "Consulta de saldo") != NULL) {
                             sscanf(buffer, "[%*[^]]] Consulta de saldo en la cuenta %d completada.", &cuenta_msg);
                             printf("DEBUG: Consultando saldo para cuenta %d (extraída del mensaje)\n", cuenta_msg);
