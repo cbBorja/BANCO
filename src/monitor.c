@@ -13,7 +13,7 @@ struct transaction {
     long msg_type;
     int account_id;
     double amount;
-    char type[10]; // "withdrawal" or "transfer"
+    char type[10];
 };
 
 void analyze_transaction(struct transaction *trans);
@@ -23,24 +23,24 @@ int main() {
     int msgid;
     struct transaction trans;
 
-    // Initialize and open the message queue
+    // Inicializa y abre el mensaje
     if ((msgid = msgget(MSG_KEY, 0666 | IPC_CREAT)) == -1) {
         perror("msgget");
         exit(EXIT_FAILURE);
     }
 
-    // Continuously read messages
+    // Continua leyendo el mensaje
     while (1) {
         if (msgrcv(msgid, &trans, sizeof(struct transaction) - sizeof(long), 0, 0) == -1) {
             perror("msgrcv");
             exit(EXIT_FAILURE);
         }
 
-        // Analyze the transaction
+        // Analiza las transaccoiones
         analyze_transaction(&trans);
     }
 
-    // Close the message queue (unreachable code in this example)
+    // Cierra el mensaje
     if (msgctl(msgid, IPC_RMID, NULL) == -1) {
         perror("msgctl");
         exit(EXIT_FAILURE);
@@ -49,6 +49,7 @@ int main() {
     return 0;
 }
 
+// Analizar las transacciones
 void analyze_transaction(struct transaction *trans) {
     static int consecutive_withdrawals = 0;
     static int last_account_id = -1;
@@ -68,7 +69,7 @@ void analyze_transaction(struct transaction *trans) {
             last_account_id = trans->account_id;
         }
     } else if (strcmp(trans->type, "transfer") == 0) {
-        // Add logic for detecting suspicious transfer patterns
+        // Detecta si hay algo sospecho
     }
 }
 
