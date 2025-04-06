@@ -12,7 +12,7 @@
 #include <sys/time.h>
 #include <errno.h>
 
-#define CONFIG_FILE "../config/config.txt"
+#define CONFIG_FILE "../config/config.dat"
 #define LOG_FILE "../data/transacciones.log"
 #define MAX_USUARIOS_SIMULTANEOS 10
 #define FIFO_BASE_PATH "/tmp/banco_fifo_"
