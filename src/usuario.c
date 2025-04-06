@@ -114,32 +114,44 @@ void *ejecutar_operacion(void *arg) {
     pthread_exit(NULL);
 }
 
-// Función para leer mensajes del banco
 void *leer_mensajes(void *arg) {
     char buffer[BUFFER_SIZE];
-    ssize_t bytes_leidos;
-    
     while (1) {
-        if (fifo_lectura_fd >= 0) {
-            bytes_leidos = read(fifo_lectura_fd, buffer, sizeof(buffer) - 1);
+        ssize_t bytes = read(fifo_lectura_fd, buffer, sizeof(buffer)-1);
+        if (bytes > 0) {
+            buffer[bytes] = '\0';
             
-            if (bytes_leidos > 0) {
-                buffer[bytes_leidos] = '\0';
-                
-                // Bloquear el mutex para imprimir el mensaje
-                pthread_mutex_lock(&stdout_mutex);
-                printf("\n[Mensaje del Banco]: %s\n", buffer);
-                pthread_mutex_unlock(&stdout_mutex);
-            } else if (bytes_leidos == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-                perror("Error al leer del FIFO");
-                break;
+            // Parsear respuesta estructurada
+            char tipo[20], mensaje[100], extra[100];
+            tipo[0] = mensaje[0] = extra[0] = '\0';
+            
+            // Formato esperado: TIPO|MENSAJE|EXTRA
+            sscanf(buffer, "%19[^|]|%99[^|]|%99s", tipo, mensaje, extra);
+            
+            pthread_mutex_lock(&stdout_mutex);
+            
+            if (strcmp(tipo, "SALDO") == 0) {
+                printf("\n[Banco] Saldo actual: %s\n", mensaje);
             }
+            else if (strcmp(tipo, "OK") == 0) {
+                printf("\n[Banco] %s. Saldo actualizado: %s\n", mensaje, extra);
+            }
+            else if (strcmp(tipo, "ERROR") == 0) {
+                printf("\n[Banco] Error: %s\n", mensaje);
+            }
+            else {
+                printf("\n[Banco] Mensaje no reconocido: %s\n", buffer);
+            }
+            
+            pthread_mutex_unlock(&stdout_mutex);
         }
-        
-        // Esperar un poco antes de intentar leer de nuevo
-        usleep(100000); // 100ms
+        else if (bytes == 0) {
+            printf("\n[Banco] Conexión cerrada\n");
+            kill(getpid(), SIGTERM);
+            break;
+        }
+        usleep(100000);
     }
-    
     return NULL;
 }
 
