@@ -215,6 +215,9 @@ void menu_usuario(int cuenta) {
         
         // Desvincular el hilo para que se limpie automáticamente al finalizar.
         pthread_detach(tid);
+        if(op.tipo_operacion==4){
+            sleep(1); // Esperar un segundo para permitir la lectura de mensajes.
+        }
     }
 
     // Enviar mensaje de cierre al banco
